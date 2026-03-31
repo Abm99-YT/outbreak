@@ -1,0 +1,4664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OUTBREAK</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Courier+Prime:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+/* ============================================================
+   OUTBREAK — IMPROVED CSS (style/design/readability only)
+   Drop-in replacement for the <style> block in the HTML.
+   No HTML or JS changes required.
+   ============================================================ */
+
+:root {
+  /* Core palette — richer, higher-contrast */
+  --bg:     #04080d;
+  --surf:   #091018;
+  --surf2:  #0e1a24;
+  --surf3:  #142030;
+  --border: #1e3347;
+  --border2:#2d4d68;
+
+  /* Accent reds — warmer, more luminous */
+  --r:  #f03555;
+  --rd: #7a1828;
+  --r2: #ff7088;
+
+  /* Accent greens — brighter, cleaner */
+  --g:  #22e89c;
+  --gd: #0b6640;
+  --g2: #70ffc8;
+
+  /* Amber */
+  --a:  #f8ad30;
+  --ad: #7a5000;
+  --a2: #ffe099;
+
+  /* Blue */
+  --b:  #3ec8ff;
+  --bd: #0d5580;
+  --b2: #90e4ff;
+
+  /* Purple */
+  --p:  #c96aff;
+  --pd: #5a1880;
+
+  /* Text — much higher contrast on dark */
+  --tx:  #ccdde8;
+  --txd: #4d6e86;
+  --txb: #f0f8ff;
+
+  --fn: 'Rajdhani', sans-serif;
+  --fc: 'Courier Prime', monospace;
+  --fd: 'Bebas Neue', sans-serif;
+
+  --shadow-r: 0 0 28px rgba(240,53,85,0.22);
+  --shadow-g: 0 0 28px rgba(34,232,156,0.22);
+  --shadow-b: 0 0 28px rgba(62,200,255,0.22);
+  --shadow-a: 0 0 28px rgba(248,173,48,0.22);
+
+  --glass:  rgba(9,16,24,0.90);
+  --radius: 2px;
+
+  /* Spacing scale */
+  --sp-xs: 6px;
+  --sp-sm: 10px;
+  --sp: 14px;
+  --sp-md: 18px;
+  --sp-lg: 24px;
+  --sp-xl: 36px;
+}
+
+/* ── RESET ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+/* ── BODY ──────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--fn);
+  font-size: 16px;
+  line-height: 1.55;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse at 18% 0%,   rgba(34,232,156,0.045) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 100%, rgba(240,53,85,0.055) 0%,  transparent 52%);
+}
+
+/* Scanline — more subtle, softer */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.025) 3px,
+    rgba(0,0,0,0.025) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  animation: scanlines 12s linear infinite;
+}
+
+@keyframes scanlines {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 120px; }
+}
+
+/* ── ICONS ──────────────────────────────────────────────── */
+.icon { display: inline-flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px; flex-shrink: 0; }
+.icon svg { width: 100%; height: 100%; }
+.icon-lg { width: 32px; height: 32px; }
+.icon-xl { width: 52px; height: 52px; }
+.icon-sm { width: 15px; height: 15px; }
+
+/* ── LAYOUT HELPERS ─────────────────────────────────────── */
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active {
+  display: flex;
+  animation: screenIn 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pad    { padding: 18px; }
+.pad-lg { padding: 28px; }
+.gap    { gap: 14px; }
+.gap-sm { gap: 9px; }
+.row    { display: flex; align-items: center; }
+.col    { display: flex; flex-direction: column; }
+.wrap   { flex-wrap: wrap; }
+.jbet   { justify-content: space-between; }
+.jcen   { justify-content: center; }
+.acen   { align-items: center; }
+.full   { width: 100%; }
+
+.mt4  { margin-top: 4px; }
+.mt8  { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.mt16 { margin-top: 16px; }
+.mt24 { margin-top: 24px; }
+.mb8  { margin-bottom: 8px; }
+.mb12 { margin-bottom: 12px; }
+.ml-auto { margin-left: auto; }
+.text-center { text-align: center; }
+.ml8 { margin-left: 8px; }
+
+.scroll { overflow-y: auto; max-height: 300px; padding-right: 5px; }
+.scroll::-webkit-scrollbar { width: 3px; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+.scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.scroll::-webkit-scrollbar-thumb:hover { background: var(--txd); }
+
+/* ── TYPOGRAPHY ─────────────────────────────────────────── */
+.hd   { font-family: var(--fd); letter-spacing: .08em; }
+.mono { font-family: var(--fc); }
+
+.label {
+  font-family: var(--fd);
+  font-size: .72rem;
+  letter-spacing: .22em;
+  color: var(--txd);
+  text-transform: uppercase;
+}
+
+.tiny { font-size: .80rem; }
+.sm   { font-size: .88rem; }
+.lg   { font-size: 1.15rem; }
+.xl   { font-size: 1.5rem; }
+
+.r   { color: var(--r); }
+.g   { color: var(--g); }
+.a   { color: var(--a); }
+.b   { color: var(--b); }
+.p   { color: var(--p); }
+.dim { color: var(--txd); }
+
+/* Glow helpers */
+.glow-g { text-shadow: 0 0 12px rgba(34,232,156,0.6),   0 0 24px rgba(34,232,156,0.3); }
+.glow-r { text-shadow: 0 0 12px rgba(240,53,85,0.6),    0 0 24px rgba(240,53,85,0.3); }
+.glow-b { text-shadow: 0 0 12px rgba(62,200,255,0.6),   0 0 24px rgba(62,200,255,0.3); }
+.glow-a { text-shadow: 0 0 12px rgba(248,173,48,0.6),   0 0 24px rgba(248,173,48,0.3); }
+
+/* ── PANELS ─────────────────────────────────────────────── */
+.panel {
+  background: linear-gradient(140deg, rgba(14,26,36,0.98) 0%, rgba(9,16,24,0.95) 100%);
+  border: 1px solid var(--border);
+  border-top-color: var(--border2);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Thin accent line at top */
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(62,200,255,0.25), transparent);
+  pointer-events: none;
+}
+
+.panel:hover {
+  border-color: var(--border2);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.panel-hd {
+  font-family: var(--fd);
+  font-size: .76rem;
+  letter-spacing: .22em;
+  color: var(--b2);            /* ← was txd — now readable */
+  padding-bottom: 11px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.panel-hd::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 48px; height: 1px;
+  background: var(--b);
+  box-shadow: 0 0 6px var(--b);
+  opacity: 0.7;
+}
+
+.panel-hd .icon { opacity: .75; }
+
+/* ── BUTTONS ─────────────────────────────────────────────── */
+.btn {
+  font-family: var(--fd);
+  font-size: .82rem;
+  letter-spacing: .18em;
+  padding: 12px 22px;
+  border: 1px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  overflow: hidden;
+  color: var(--tx);
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+/* Subtle shine overlay */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Hover fill layer */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.18s;
+  z-index: 0;
+}
+
+.btn > * { position: relative; z-index: 1; }
+
+.btn:hover {
+  transform: translateY(-2px);
+  letter-spacing: .21em;
+}
+.btn:hover::after { opacity: .10; }
+.btn:active  { transform: translateY(1px); }
+.btn:active::after { opacity: .18; }
+.btn:disabled { opacity: .28; cursor: not-allowed; transform: none; }
+
+/* Colour variants */
+.btn-r { color: var(--r); border-color: var(--r); }
+.btn-r:hover { box-shadow: 0 0 20px rgba(240,53,85,0.45), 0 3px 12px rgba(0,0,0,0.4); }
+
+.btn-g { color: var(--g); border-color: var(--g); }
+.btn-g:hover { box-shadow: 0 0 20px rgba(34,232,156,0.45), 0 3px 12px rgba(0,0,0,0.4); }
+
+.btn-a { color: var(--a); border-color: var(--a); }
+.btn-a:hover { box-shadow: 0 0 20px rgba(248,173,48,0.45), 0 3px 12px rgba(0,0,0,0.4); }
+
+.btn-b { color: var(--b); border-color: var(--b); }
+.btn-b:hover { box-shadow: 0 0 20px rgba(62,200,255,0.45), 0 3px 12px rgba(0,0,0,0.4); }
+
+.btn-p { color: var(--p); border-color: var(--p); }
+.btn-p:hover { box-shadow: 0 0 20px rgba(201,106,255,0.45), 0 3px 12px rgba(0,0,0,0.4); }
+
+.btn-dim { color: var(--txd); border-color: var(--border); }
+.btn-dim:hover { color: var(--tx); border-color: var(--border2); }
+
+.btn-lg   { padding: 16px 36px; font-size: .94rem; }
+.btn-sm   { padding: 8px 15px;  font-size: .74rem; }
+.btn-full { width: 100%; display: block; text-align: center; }
+
+/* Shimmer sweep on primary action buttons */
+.btn-g::before,
+.btn-r::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.55s;
+  pointer-events: none;
+  z-index: 1;
+}
+.btn-g:hover::before,
+.btn-r:hover::before { left: 160%; }
+
+/* ── PROGRESS BARS ─────────────────────────────────────── */
+.bar-wrap { position: relative; }
+
+.bar-track {
+  height: 7px;
+  background: rgba(20,32,48,0.9);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  border-radius: 1px;
+}
+
+.bar-track.tall { height: 12px; }
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.7s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  border-radius: 1px;
+}
+
+/* Bright leading-edge shine */
+.bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 6px; height: 100%;
+  background: rgba(255,255,255,0.5);
+  filter: blur(3px);
+  animation: barShimmer 2.2s infinite;
+}
+
+@keyframes barShimmer {
+  0%,100% { opacity: 0.4; }
+  50%      { opacity: 0.95; }
+}
+
+/* ── BADGES ─────────────────────────────────────────────── */
+.badge {
+  font-family: var(--fd);
+  font-size: .65rem;
+  letter-spacing: .12em;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  display: inline-block;
+  clip-path: polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%);
+}
+
+/* ── INPUTS ─────────────────────────────────────────────── */
+.inp {
+  background: rgba(8,16,24,0.85);
+  border: 1px solid var(--border);
+  border-bottom-color: var(--border2);
+  color: var(--txb);
+  font-family: var(--fn);
+  font-size: .98rem;
+  padding: 11px 15px;
+  outline: none;
+  transition: all 0.25s ease;
+  width: 100%;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.inp:focus {
+  border-color: var(--g);
+  background: rgba(8,20,16,0.90);
+  box-shadow: 0 0 0 1px rgba(34,232,156,0.18), 0 6px 16px rgba(0,0,0,0.35);
+  color: var(--g2);
+}
+
+.inp::placeholder { color: rgba(77,110,134,0.7); }
+
+/* ── SELECTS ─────────────────────────────────────────────── */
+.sel {
+  background: rgba(8,16,24,0.92);
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border2);
+  color: var(--txb);
+  font-family: var(--fn);
+  font-size: .90rem;
+  padding: 10px 38px 10px 13px;
+  outline: none;
+  width: 100%;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234d6e86' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+.sel:focus {
+  border-color: var(--b);
+  background-color: rgba(8,16,24,0.98);
+  box-shadow: 0 0 0 1px rgba(62,200,255,0.18), 0 6px 16px rgba(0,0,0,0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233ec8ff' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.sel option {
+  background: #0a1420;
+  color: var(--txb);
+  padding: 9px;
+}
+
+/* ── KEYFRAMES ─────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .35; }
+}
+@keyframes pulseBorder {
+  0%,100% { border-color: var(--r); box-shadow: 0 0 8px rgba(240,53,85,0.25); }
+  50%      { border-color: var(--r2); box-shadow: 0 0 22px rgba(240,53,85,0.6); }
+}
+@keyframes glow {
+  0%,100% { box-shadow: 0 0 10px currentColor; }
+  50%      { box-shadow: 0 0 28px currentColor, 0 0 56px currentColor; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes slideR {
+  from { transform: translateX(-16px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes blink {
+  0%,49%,100% { opacity: 1; }
+  50%,99%     { opacity: 0; }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@keyframes gridScroll {
+  0%   { transform: translate(0, 0); }
+  100% { transform: translate(44px, 44px); }
+}
+@keyframes dataFlicker {
+  0%,96%,100% { opacity: 1; }
+  97%          { opacity: 0.45; }
+  98%          { opacity: 0.9; }
+  99%          { opacity: 0.5; }
+}
+@keyframes borderGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(34,232,156,0); }
+  50%      { box-shadow: 0 0 16px 3px rgba(34,232,156,0.22); }
+}
+@keyframes titleReveal {
+  from { opacity: 0; transform: scale(0.82) translateY(24px); filter: blur(10px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    filter: blur(0); }
+}
+@keyframes titleFlicker {
+  0%,93%,95%,97%,100% {
+    text-shadow:
+      0 0 36px rgba(240,53,85,0.65),
+      0 0 72px rgba(240,53,85,0.32),
+      0 0 120px rgba(240,53,85,0.12);
+  }
+  94%,96%,98% {
+    text-shadow:
+      0 0 12px rgba(240,53,85,0.3),
+      0 0 24px rgba(240,53,85,0.12);
+  }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.94); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.90) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+@keyframes roleCardIn {
+  from { opacity: 0; transform: scale(0.93) rotateX(6deg); }
+  to   { opacity: 1; transform: scale(1)   rotateX(0); }
+}
+@keyframes scanPulse {
+  0%,100% { opacity: 0.03; }
+  50%      { opacity: 0.07; }
+}
+
+.fade-up  { animation: fadeUp .40s cubic-bezier(0.22,1,0.36,1) forwards; }
+.pulse    { animation: pulse 2.2s infinite; }
+.blink    { animation: blink 1.1s infinite; }
+.float-el { animation: float 3.2s ease-in-out infinite; }
+
+/* ── TOAST ─────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 11px 28px;
+  font-family: var(--fd);
+  font-size: .76rem;
+  letter-spacing: .18em;
+  z-index: 9990;
+  animation: toastIn .3s cubic-bezier(0.22,1,0.36,1), toastOut .3s ease 2.3s both;
+  white-space: nowrap;
+  max-width: 92vw;
+  text-align: center;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+
+.toast-g { background: rgba(34,232,156,0.12);  border: 1px solid var(--g);  color: var(--g);  box-shadow: 0 0 24px rgba(34,232,156,0.18),  0 10px 28px rgba(0,0,0,0.5); }
+.toast-r { background: rgba(240,53,85,0.12);   border: 1px solid var(--r);  color: var(--r);  box-shadow: 0 0 24px rgba(240,53,85,0.18),   0 10px 28px rgba(0,0,0,0.5); }
+.toast-a { background: rgba(248,173,48,0.12);  border: 1px solid var(--a);  color: var(--a);  box-shadow: 0 0 24px rgba(248,173,48,0.18),  0 10px 28px rgba(0,0,0,0.5); }
+.toast-b { background: rgba(62,200,255,0.12);  border: 1px solid var(--b);  color: var(--b);  box-shadow: 0 0 24px rgba(62,200,255,0.18),  0 10px 28px rgba(0,0,0,0.5); }
+
+/* ── MODAL ─────────────────────────────────────────────── */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(3,7,12,0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-box {
+  background: linear-gradient(148deg, #0e1e2c, #091520);
+  border: 1px solid var(--border2);
+  border-top-color: rgba(62,200,255,0.35);
+  padding: 32px;
+  width: 100%;
+  max-width: 460px;
+  animation: modalIn .34s cubic-bezier(0.22,1,0.36,1);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow:
+    0 0 80px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(255,255,255,0.03),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+.modal-box::-webkit-scrollbar { width: 3px; }
+.modal-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── TITLE SCREEN ─────────────────────────────────────── */
+#s-title {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 28% 18%, rgba(240,53,85,0.10) 0%, transparent 52%),
+    radial-gradient(ellipse at 72% 84%, rgba(34,232,156,0.07) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 50%, #0d2030 0%, var(--bg) 68%);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scrolling grid background */
+#s-title::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,51,71,0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,51,71,0.45) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: gridScroll 18s linear infinite;
+}
+
+/* Subtle corner frame */
+#s-title::after {
+  content: '';
+  position: absolute;
+  top: 24px; left: 24px; right: 24px; bottom: 24px;
+  border: 1px solid rgba(30,51,71,0.6);
+  pointer-events: none;
+}
+
+.t-main {
+  font-family: var(--fd);
+  font-size: clamp(5rem, 18vw, 10rem);
+  letter-spacing: .06em;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+  animation: titleReveal 1.3s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.t-main-r {
+  color: var(--r);
+  text-shadow:
+    0 0 36px rgba(240,53,85,0.65),
+    0 0 72px rgba(240,53,85,0.32),
+    0 0 120px rgba(240,53,85,0.12);
+  animation: titleFlicker 9s infinite;
+}
+
+.t-sub {
+  font-family: var(--fc);
+  font-size: .86rem;
+  letter-spacing: .35em;
+  color: var(--txd);
+  margin: 14px 0 56px;
+  position: relative;
+  z-index: 1;
+  animation: fadeUp 1s 0.7s both;
+}
+
+.t-version {
+  position: absolute;
+  bottom: 22px; right: 22px;
+  font-family: var(--fd);
+  font-size: .68rem;
+  letter-spacing: .22em;
+  color: var(--txd);
+  opacity: 0.55;
+}
+
+/* ── SETUP SCREEN ─────────────────────────────────────── */
+#s-setup { padding: 36px 18px; align-items: center; }
+.setup-wrap { width: 100%; max-width: 520px; }
+
+/* ── HANDOFF SCREEN ─────────────────────────────────────── */
+#s-handoff {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(10,24,20,0.9) 0%, var(--bg) 70%);
+  position: relative;
+}
+
+#s-handoff::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(28,51,71,0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(28,51,71,0.28) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+.handoff-c {
+  text-align: center;
+  padding: 48px 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.handoff-name {
+  font-family: var(--fd);
+  font-size: clamp(3rem, 11vw, 6rem);
+  color: var(--g);
+  text-shadow:
+    0 0 24px rgba(34,232,156,0.5),
+    0 0 48px rgba(34,232,156,0.22);
+  margin: 18px 0;
+  animation: float 3.2s ease-in-out infinite;
+}
+
+/* ── ROLE SCREEN ─────────────────────────────────────────── */
+#s-role { align-items: center; justify-content: center; padding: 24px; }
+.role-wrap { width: 100%; max-width: 500px; }
+
+@media (min-width: 700px) {
+  .role-wrap { max-width: 560px; }
+  .role-card { padding: 36px; }
+}
+
+.role-card {
+  padding: 32px;
+  border: 2px solid var(--border);
+  background: linear-gradient(148deg, rgba(12,22,32,0.98), rgba(8,14,22,0.99));
+  position: relative;
+  overflow: hidden;
+  animation: roleCardIn 0.55s cubic-bezier(0.22,1,0.36,1);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.role-card::before {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  opacity: .08;
+  background: currentColor;
+  filter: blur(24px);
+}
+
+.role-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0.22;
+}
+
+/* ── BOARD SCREEN ─────────────────────────────────────────── */
+#s-board { padding: 16px; gap: 13px; }
+
+.board-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.board-title {
+  font-family: var(--fd);
+  font-size: 2.1rem;
+  letter-spacing: .14em;
+  color: var(--r);
+  text-shadow:
+    0 0 14px rgba(240,53,85,0.5),
+    0 0 32px rgba(240,53,85,0.22);
+  animation: dataFlicker 14s infinite;
+}
+
+/* ── STAT GRID ─────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+
+.stat-box {
+  background: linear-gradient(148deg, rgba(14,22,32,0.96), rgba(18,28,40,0.88));
+  border: 1px solid var(--border);
+  padding: 16px 12px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, transform 0.22s;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.stat-box::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.025), transparent);
+  pointer-events: none;
+}
+
+.stat-box:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+}
+
+/* Label inside stat box — more visible */
+.stat-box .label {
+  color: rgba(176,200,220,0.6);
+  font-size: .68rem;
+  margin-bottom: 5px;
+}
+
+.stat-val {
+  font-family: var(--fd);
+  font-size: 1.7rem;
+  line-height: 1;
+  animation: dataFlicker 16s infinite;
+}
+
+.stat-val.g { text-shadow: 0 0 14px rgba(34,232,156,0.38); }
+.stat-val.a { text-shadow: 0 0 14px rgba(248,173,48,0.38); }
+.stat-val.r { text-shadow: 0 0 14px rgba(240,53,85,0.38); }
+
+/* ── REGIONS ─────────────────────────────────────────────── */
+.regions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+}
+
+.region {
+  background: linear-gradient(148deg, rgba(14,22,32,0.96), rgba(18,28,40,0.88));
+  border: 1px solid var(--border);
+  padding: 13px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.4s, box-shadow 0.4s, transform 0.22s;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.region:hover { transform: scale(1.015); }
+
+.region.crit {
+  border-color: var(--r);
+  box-shadow: 0 0 20px rgba(240,53,85,0.18) inset;
+}
+
+.region.crit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(240,53,85,0.045);
+  animation: pulse 1.5s infinite;
+}
+
+.region.crit::after {
+  content: 'CRITICAL';
+  position: absolute;
+  top: 7px; right: 9px;
+  font-family: var(--fd);
+  font-size: .54rem;
+  letter-spacing: .2em;
+  color: var(--r);
+  opacity: 0.8;
+  animation: blink 1.6s infinite;
+}
+
+.region-name {
+  font-family: var(--fd);
+  font-size: .70rem;
+  letter-spacing: .18em;
+  color: rgba(176,200,220,0.65);
+  margin-bottom: 5px;
+}
+
+.region-pop {
+  font-family: var(--fd);
+  font-size: 1.08rem;
+  margin-bottom: 3px;
+  color: var(--txb);
+}
+
+.region-inf {
+  font-size: .76rem;
+  color: var(--r);
+  margin-bottom: 7px;
+}
+
+/* ── SYMPTOMS ─────────────────────────────────────────────── */
+.symptom-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.symptom {
+  font-family: var(--fd);
+  font-size: .65rem;
+  letter-spacing: .08em;
+  padding: 4px 11px;
+  background: rgba(240,53,85,0.08);
+  border: 1px solid var(--rd);
+  color: var(--r);
+  transition: all 0.22s;
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+
+.symptom:hover {
+  background: rgba(240,53,85,0.16);
+  border-color: var(--r);
+}
+
+/* Known symptoms heading area */
+#symptom-list .tiny.dim {
+  color: var(--txd);
+  font-style: italic;
+}
+
+/* ── TURN LIST ─────────────────────────────────────────────── */
+.turn-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  background: linear-gradient(90deg, rgba(14,22,32,0.96), rgba(18,28,40,0.75));
+  border: 1px solid var(--border);
+  font-size: .86rem;
+  transition: all 0.25s;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  position: relative;
+  overflow: hidden;
+  color: var(--tx);          /* ← was inheriting too-dark colour */
+}
+
+.turn-row.cur {
+  border-color: var(--g);
+  background: linear-gradient(90deg, rgba(34,232,156,0.10), rgba(18,28,40,0.75));
+  color: var(--g2);
+  box-shadow: 0 0 14px rgba(34,232,156,0.12);
+  animation: borderGlow 2.2s infinite;
+}
+
+.turn-row.cur::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--g);
+  box-shadow: 0 0 10px var(--g);
+}
+
+.turn-row.done { opacity: .3; }
+
+.turn-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--txd);
+  flex-shrink: 0;
+}
+
+.turn-row.cur .turn-dot {
+  background: var(--g);
+  box-shadow: 0 0 10px var(--g);
+  animation: pulse 1.6s infinite;
+}
+
+/* ── PATHOGEN SCREEN ─────────────────────────────────────── */
+#s-path { padding: 16px; gap: 14px; }
+
+.path-header {
+  padding: 20px;
+  background: linear-gradient(138deg, rgba(240,53,85,0.15), rgba(120,20,36,0.09), transparent);
+  border: 1px solid var(--rd);
+  border-top-color: rgba(240,53,85,0.5);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.path-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 20px,
+    rgba(240,53,85,0.018) 20px,
+    rgba(240,53,85,0.018) 21px
+  );
+  pointer-events: none;
+}
+
+.path-type-name {
+  font-family: var(--fd);
+  font-size: 1.65rem;
+  letter-spacing: .08em;
+}
+
+.path-role-label {
+  font-family: var(--fd);
+  font-size: .68rem;
+  letter-spacing: .22em;
+  color: rgba(176,200,220,0.5);
+  margin-bottom: 3px;
+}
+
+/* ── STRAIN CARDS ─────────────────────────────────────────── */
+.strain-card {
+  border: 1px solid var(--border);
+  padding: 14px;
+  background: linear-gradient(138deg, rgba(14,22,32,0.97), rgba(18,28,40,0.92));
+  margin-bottom: 9px;
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.strain-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border2);
+  transition: background 0.22s, box-shadow 0.22s;
+}
+
+.strain-card:hover {
+  border-color: var(--a);
+  transform: translateX(5px);
+  box-shadow: -5px 0 0 0 rgba(248,173,48,0.18);
+  background: linear-gradient(138deg, rgba(20,28,38,0.98), rgba(18,28,40,0.93));
+}
+
+.strain-card:hover::before { background: var(--a); }
+
+.strain-card.active-strain {
+  border-color: var(--r);
+  background: linear-gradient(138deg, rgba(240,53,85,0.10), rgba(18,28,40,0.92));
+  box-shadow: 0 0 18px rgba(240,53,85,0.12);
+}
+
+.strain-card.active-strain::before {
+  background: var(--r);
+  box-shadow: 0 0 10px var(--r);
+}
+
+.strain-card.locked { opacity: .35; cursor: default; }
+.strain-card.locked:hover { transform: none; border-color: var(--border); }
+
+.strain-name {
+  font-family: var(--fd);
+  font-size: .85rem;
+  letter-spacing: .1em;
+  color: var(--r);
+  margin-bottom: 5px;
+}
+
+.strain-props { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+
+.prop-tag {
+  font-family: var(--fd);
+  font-size: .62rem;
+  letter-spacing: .08em;
+  padding: 3px 9px;
+  border: 1px solid var(--border2);
+  color: rgba(176,200,220,0.55);
+  transition: all 0.22s;
+}
+
+.prop-tag.active {
+  border-color: var(--a);
+  color: var(--a);
+  background: rgba(248,173,48,0.08);
+  box-shadow: 0 0 8px rgba(248,173,48,0.18);
+}
+
+/* ── ACTION GRID ─────────────────────────────────────────── */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+}
+
+.action-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: linear-gradient(148deg, rgba(14,22,32,0.97), rgba(18,28,40,0.88));
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.action-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--a), transparent);
+  opacity: 0;
+  transition: opacity 0.22s;
+}
+
+.action-card:hover {
+  border-color: var(--a);
+  background: rgba(248,173,48,0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+.action-card:hover::before { opacity: 0.55; }
+
+.action-card.selected {
+  border-color: var(--r);
+  background: linear-gradient(138deg, rgba(240,53,85,0.11), rgba(18,28,40,0.88));
+  box-shadow: 0 0 20px rgba(240,53,85,0.17);
+}
+
+.action-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 9px; right: 11px;
+  font-family: var(--fd);
+  font-size: .72rem;
+  color: var(--r);
+  animation: fadeIn 0.22s;
+}
+
+.action-title {
+  font-family: var(--fd);
+  font-size: .76rem;
+  letter-spacing: .1em;
+  margin-bottom: 6px;
+  color: var(--txb);          /* ← brighter */
+}
+
+.action-desc {
+  font-size: .76rem;
+  color: rgba(176,200,220,0.65);  /* ← was txd — now lighter */
+  line-height: 1.5;
+}
+
+/* ── SCIENTIST SCREEN ─────────────────────────────────────── */
+#s-sci { padding: 16px; gap: 14px; }
+
+.sci-header {
+  padding: 18px 20px;
+  background: linear-gradient(138deg, rgba(62,200,255,0.12), rgba(13,85,128,0.08), transparent);
+  border: 1px solid var(--bd);
+  border-top-color: rgba(62,200,255,0.45);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.sci-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 20px,
+    rgba(62,200,255,0.025) 20px,
+    rgba(62,200,255,0.025) 21px
+  );
+  pointer-events: none;
+}
+
+.sci-name-disp {
+  font-family: var(--fd);
+  font-size: 1.35rem;
+  color: var(--b);
+  letter-spacing: .06em;
+}
+
+.fund-disp {
+  font-family: var(--fd);
+  font-size: 1.12rem;
+  color: var(--g);
+  margin-left: auto;
+  text-shadow: 0 0 12px rgba(34,232,156,0.38);
+  animation: dataFlicker 11s infinite;
+}
+
+/* ── DISCOVERY BOX ─────────────────────────────────────────── */
+.disc-box {
+  padding: 16px;
+  border: 1px solid;
+  animation: fadeUp .42s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.disc-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+.disc-minor {
+  border-color: rgba(77,110,134,0.6);
+  background: rgba(184,204,216,0.04);
+  color: var(--txd);
+}
+
+.disc-development {
+  border-color: var(--a);
+  background: linear-gradient(138deg, rgba(248,173,48,0.07), rgba(18,28,40,0.6));
+  border-top-color: rgba(248,173,48,0.6);
+}
+
+.disc-breakthrough {
+  border-color: var(--g);
+  background: linear-gradient(138deg, rgba(34,232,156,0.09), rgba(18,28,40,0.6));
+  border-top-color: rgba(34,232,156,0.6);
+  box-shadow: 0 0 24px rgba(34,232,156,0.10);
+}
+
+.disc-tier {
+  font-family: var(--fd);
+  font-size: .64rem;
+  letter-spacing: .24em;
+  margin-bottom: 9px;
+}
+
+.disc-minor .disc-tier       { color: var(--txd); }
+.disc-development .disc-tier { color: var(--a); }
+.disc-breakthrough .disc-tier { color: var(--g); }
+
+.disc-text {
+  font-family: var(--fc);
+  font-size: .88rem;
+  line-height: 1.65;
+  color: var(--txb);
+}
+
+/* ── COMPOUND ITEMS ─────────────────────────────────────────── */
+.compound-item {
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  background: linear-gradient(148deg, rgba(14,22,32,0.97), rgba(18,28,40,0.88));
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.compound-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border2);
+  transition: background 0.22s, box-shadow 0.22s;
+}
+
+.compound-item:hover {
+  border-color: var(--b);
+  transform: translateX(4px);
+  background: linear-gradient(148deg, rgba(18,28,42,0.98), rgba(18,28,40,0.89));
+}
+
+.compound-item:hover::before {
+  background: var(--b);
+  box-shadow: 0 0 8px var(--b);
+}
+
+.compound-item.selected {
+  border-color: var(--g);
+  background: linear-gradient(138deg, rgba(34,232,156,0.08), rgba(18,28,40,0.88));
+}
+
+.compound-item.selected::before {
+  background: var(--g);
+  box-shadow: 0 0 10px var(--g);
+}
+
+.compound-item.in-formula {
+  border-color: var(--g);
+  background: rgba(34,232,156,0.06);
+}
+
+.ci-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 6px;
+}
+
+.ci-name {
+  font-family: var(--fd);
+  font-size: .78rem;
+  letter-spacing: .1em;
+  color: var(--txb);
+}
+
+.ci-eta {
+  font-family: var(--fd);
+  font-size: .65rem;
+  padding: 2px 8px;
+  border: 1px solid var(--a);
+  color: var(--a);
+  background: rgba(248,173,48,0.08);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ci-desc {
+  font-size: .76rem;
+  color: rgba(176,200,220,0.60);
+  line-height: 1.50;
+  margin-bottom: 6px;
+}
+
+.ci-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.ci-tag {
+  font-family: var(--fd);
+  font-size: .60rem;
+  letter-spacing: .06em;
+  padding: 2px 8px;
+  background: rgba(62,200,255,0.08);
+  border: 1px solid rgba(62,200,255,0.25);
+  color: var(--b);
+  transition: all 0.2s;
+}
+
+.ci-tag:hover {
+  background: rgba(62,200,255,0.16);
+  border-color: var(--b);
+}
+
+.ci-eff { display: flex; gap: 4px; align-items: center; }
+
+.eff-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  transition: all 0.22s;
+}
+
+.eff-dot.on  { background: var(--g); box-shadow: 0 0 5px rgba(34,232,156,0.55); }
+.eff-dot.off { background: var(--surf3); border: 1px solid var(--border2); }
+
+.ci-pending {
+  position: absolute;
+  inset: 0;
+  background: rgba(4,8,14,0.75);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ci-pending-text {
+  font-family: var(--fd);
+  font-size: .68rem;
+  letter-spacing: .15em;
+  color: var(--a);
+  animation: pulse 2.2s infinite;
+}
+
+/* ── FORMULA SLOTS ─────────────────────────────────────────── */
+.formula-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin-bottom: 11px;
+}
+
+.f-slot {
+  border: 1px dashed var(--border);
+  background: rgba(14,22,32,0.6);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: .62rem;
+  color: rgba(77,110,134,0.8);
+  font-family: var(--fd);
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: all 0.24s cubic-bezier(0.22,1,0.36,1);
+  padding: 5px;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.f-slot:hover {
+  border-color: var(--b);
+  border-style: solid;
+  background: rgba(62,200,255,0.05);
+  color: var(--b);
+  transform: scale(1.06);
+}
+
+.f-slot.filled {
+  border-style: solid;
+  border-color: var(--g);
+  background: linear-gradient(138deg, rgba(34,232,156,0.10), rgba(14,22,32,0.85));
+  color: var(--g);
+  font-size: .60rem;
+  box-shadow: 0 0 10px rgba(34,232,156,0.12) inset;
+}
+
+.f-slot.pending-slot {
+  border-color: var(--a);
+  color: var(--a);
+}
+
+/* ── PLANT LAB ─────────────────────────────────────────────── */
+.plant-item {
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  background: linear-gradient(148deg, rgba(14,22,32,0.97), rgba(12,22,18,0.85));
+  margin-bottom: 8px;
+  position: relative;
+  border-left-color: rgba(34,232,156,0.24);
+  transition: border-color 0.22s;
+}
+
+.plant-item:hover { border-color: var(--gd); }
+
+.plant-name {
+  font-family: var(--fd);
+  font-size: .78rem;
+  letter-spacing: .1em;
+  color: var(--g);
+  margin-bottom: 3px;
+}
+
+.plant-status {
+  font-size: .74rem;
+  color: rgba(176,200,220,0.55);
+}
+
+.plant-synth-btn {
+  position: absolute;
+  right: 11px; top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ── REVENUE LOG ─────────────────────────────────────────── */
+.rev-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .82rem;
+  transition: background 0.15s;
+  color: var(--tx);
+}
+
+.rev-row:last-child { border-bottom: none; }
+.rev-row:hover { background: rgba(255,255,255,0.025); }
+
+/* ── PATENT ITEMS ─────────────────────────────────────────── */
+.patent-item {
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  background: linear-gradient(148deg, rgba(14,22,32,0.97), rgba(18,12,28,0.88));
+  margin-bottom: 9px;
+  border-left-color: rgba(201,106,255,0.28);
+}
+
+.patent-from {
+  font-family: var(--fd);
+  font-size: .68rem;
+  letter-spacing: .12em;
+  color: var(--p);
+  margin-bottom: 5px;
+}
+
+.patent-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+
+/* ── MODE SELECT SCREEN ─────────────────────────────────────── */
+#s-mode {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 28% 28%, rgba(34,232,156,0.055) 0%, transparent 52%),
+    radial-gradient(ellipse at 72% 72%, rgba(62,200,255,0.055) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 50%, #0c1e2e 0%, var(--bg) 68%);
+  position: relative;
+  overflow: hidden;
+}
+
+#s-mode::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,51,71,0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,51,71,0.35) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: gridScroll 18s linear infinite;
+}
+
+.mode-wrap {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 500px;
+  padding: 36px 18px;
+}
+
+.mode-card {
+  padding: 24px;
+  border: 1px solid var(--border);
+  background: linear-gradient(148deg, rgba(14,22,32,0.96), rgba(18,28,40,0.84));
+  cursor: pointer;
+  transition: all 0.26s cubic-bezier(0.22,1,0.36,1);
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--g), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.mode-card:hover {
+  border-color: var(--g);
+  background: linear-gradient(148deg, rgba(14,30,26,0.98), rgba(18,28,40,0.92));
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 0 20px rgba(34,232,156,0.10);
+}
+
+.mode-card:hover::before { opacity: 0.65; }
+
+.mode-card-title {
+  font-family: var(--fd);
+  font-size: 1.08rem;
+  letter-spacing: .14em;
+  margin-bottom: 7px;
+}
+
+.mode-card-desc {
+  font-size: .82rem;
+  color: rgba(176,200,220,0.65);
+  line-height: 1.6;
+}
+
+/* ── LOBBY / ONLINE SCREENS ─────────────────────────────────── */
+#s-online-entry, #s-lobby {
+  align-items: center;
+  justify-content: flex-start;
+  padding: 32px 18px;
+}
+
+.lobby-wrap { width: 100%; max-width: 520px; }
+
+.room-code-display {
+  font-family: var(--fd);
+  font-size: clamp(2.2rem, 9vw, 3.8rem);
+  letter-spacing: .32em;
+  color: var(--g);
+  text-shadow:
+    0 0 24px rgba(34,232,156,0.42),
+    0 0 48px rgba(34,232,156,0.18);
+  text-align: center;
+  padding: 22px;
+  border: 1px solid var(--gd);
+  background: linear-gradient(138deg, rgba(34,232,156,0.06), rgba(14,22,32,0.92));
+  margin: 14px 0;
+  cursor: pointer;
+  transition: all 0.26s;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px));
+}
+
+.room-code-display:hover {
+  background: linear-gradient(138deg, rgba(34,232,156,0.12), rgba(14,22,32,0.92));
+  box-shadow: 0 0 28px rgba(34,232,156,0.18);
+}
+
+.player-slot {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 15px;
+  background: linear-gradient(90deg, rgba(14,22,32,0.96), rgba(18,28,40,0.78));
+  border: 1px solid var(--border);
+  margin-bottom: 7px;
+  font-family: var(--fd);
+  font-size: .82rem;
+  letter-spacing: .1em;
+  transition: all 0.22s;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+  color: var(--tx);
+}
+
+.player-slot.connected {
+  border-color: var(--g);
+  color: var(--g2);
+  box-shadow: 0 0 10px rgba(34,232,156,0.10);
+}
+
+.player-slot.waiting { color: var(--txd); border-style: dashed; }
+.player-slot.self    { border-color: var(--b); color: var(--b2); }
+
+.pslot-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--txd);
+  flex-shrink: 0;
+}
+
+.player-slot.connected .pslot-dot {
+  background: var(--g);
+  box-shadow: 0 0 10px var(--g);
+  animation: pulse 2.2s infinite;
+}
+
+/* ── WAITING SCREEN ─────────────────────────────────────────── */
+#s-waiting {
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, #0e2234 0%, var(--bg) 65%);
+  position: relative;
+}
+
+#s-waiting::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,51,71,0.32) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,51,71,0.32) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.75;
+}
+
+.waiting-inner {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 480px;
+  padding: 36px 18px;
+  text-align: center;
+}
+
+/* ── ONLINE TURN STATUS ─────────────────────────────────────── */
+.ots-panel {
+  border: 1px solid var(--border2);
+  padding: 15px;
+  transition: all 0.3s;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.ots-my-turn {
+  background: linear-gradient(138deg, rgba(34,232,156,0.12), transparent);
+  border-color: var(--g);
+  box-shadow: 0 0 24px rgba(34,232,156,0.10);
+  animation: borderGlow 2.2s infinite;
+}
+
+.ots-waiting {
+  background: linear-gradient(148deg, rgba(14,22,32,0.96), rgba(18,28,40,0.84));
+}
+
+.ots-round-end-host {
+  background: linear-gradient(138deg, rgba(248,173,48,0.12), transparent);
+  border-color: var(--a);
+}
+
+.ots-round-end-guest { background: var(--surf); }
+
+.ots-role-badge {
+  font-family: var(--fd);
+  font-size: .68rem;
+  padding: 3px 11px;
+  border: 1px solid currentColor;
+  display: inline-block;
+  letter-spacing: .14em;
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+}
+
+/* ── SPINNER ─────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 15px; height: 15px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--g);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* ── WIN SCREEN ─────────────────────────────────────────── */
+#s-win {
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(34,232,156,0.08) 0%, transparent 52%),
+    var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+#s-win::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,51,71,0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,51,71,0.28) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.win-title {
+  font-family: var(--fd);
+  font-size: clamp(2.8rem, 11vw, 5.5rem);
+  margin-bottom: 11px;
+  position: relative;
+  z-index: 1;
+  animation: titleReveal 0.9s cubic-bezier(0.22,1,0.36,1);
+}
+
+/* ── TABS — Active indicator ─────────────────────────────── */
+#tab-compounds,
+#tab-lab,
+#tab-patent,
+#tab-formula,
+#tab-revenue {
+  position: relative;
+  transition: all 0.22s;
+}
+
+#tab-compounds.btn-b::after,
+#tab-lab.btn-b::after,
+#tab-patent.btn-b::after,
+#tab-formula.btn-b::after,
+#tab-revenue.btn-b::after {
+  content: '';
+  position: absolute;
+  bottom: -4px; left: 0; right: 0;
+  height: 2px;
+  background: var(--b);
+  box-shadow: 0 0 8px var(--b);
+}
+
+/* ── SECTION DIVIDERS ─────────────────────────────────────── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border2), transparent);
+  margin: 9px 0;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (min-width: 600px) {
+  body { font-size: 17px; }
+  .panel { padding: 20px; }
+  .modal-box { padding: 36px; }
+  .stat-val { font-size: 2rem; }
+  .board-title { font-size: 2.4rem; }
+  .path-type-name { font-size: 1.85rem; }
+  .sci-name-disp { font-size: 1.5rem; }
+  .fund-disp { font-size: 1.2rem; }
+  .action-title { font-size: .82rem; }
+  .action-desc  { font-size: .80rem; }
+  .turn-row { font-size: .90rem; }
+  .disc-text { font-size: .92rem; }
+  .btn-sm { padding: 9px 17px; font-size: .76rem; }
+  .btn-lg { padding: 17px 40px; font-size: .98rem; }
+}
+
+@media (min-width: 900px) {
+  body { font-size: 18px; }
+  .panel { padding: 22px; }
+  .modal-box { padding: 40px; max-width: 520px; }
+  #s-board  { padding: 20px; gap: 16px; }
+  #s-path   { padding: 20px; gap: 16px; }
+  #s-sci    { padding: 20px; gap: 16px; }
+  .stat-val { font-size: 2.2rem; }
+  .board-title { font-size: 2.7rem; }
+  .region-pop { font-size: 1.15rem; }
+  .ci-name  { font-size: .84rem; }
+  .ci-desc  { font-size: .80rem; }
+  .btn      { font-size: .86rem; padding: 13px 24px; }
+  .btn-sm   { padding: 10px 18px; font-size: .78rem; }
+  .btn-lg   { padding: 18px 44px; font-size: 1rem; }
+  .action-grid { gap: 11px; }
+  .formula-grid { gap: 9px; }
+  .regions-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 360px) {
+  .action-grid  { grid-template-columns: 1fr; }
+  .formula-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-grid    { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+<!-- ICONS (inline SVG sprites) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- virus -->
+    <symbol id="ico-virus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- bacteria -->
+    <symbol id="ico-bacteria" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="5" ry="7" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="12" cy="12" rx="2" ry="3" fill="currentColor"/><path d="M9 6 Q6 4 7 2" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M15 6 Q18 4 17 2" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M9 18 Q6 20 7 22" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M15 18 Q18 20 17 22" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></symbol>
+    <!-- protist -->
+    <symbol id="ico-protist" viewBox="0 0 24 24"><path d="M12 3 C16 3 20 6 20 11 C20 16 16 20 12 20 C9 20 6 18 5 15 C4 12 6 9 8 8 C10 7 11 5 12 3Z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M20 11 Q23 9 22 13" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M5 15 Q2 17 3 20" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></symbol>
+    <!-- fungus -->
+    <symbol id="ico-fungus" viewBox="0 0 24 24"><path d="M7 14 Q7 7 12 7 Q17 7 17 14Z" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="10.5" y="14" width="3" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="11" r="1" fill="currentColor"/><circle cx="14" cy="10" r="0.8" fill="currentColor"/><circle cx="12" cy="9" r="0.6" fill="currentColor"/></symbol>
+    <!-- flask -->
+    <symbol id="ico-flask" viewBox="0 0 24 24"><path d="M9 3h6M9 3v7l-4 8a1 1 0 00.9 1.5h12.2a1 1 0 00.9-1.5L15 10V3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="17" r="1" fill="currentColor"/><circle cx="13" cy="15" r="0.7" fill="currentColor"/></symbol>
+    <!-- dna -->
+    <symbol id="ico-dna" viewBox="0 0 24 24"><path d="M6 3 C8 5 8 8 6 10 C4 12 4 15 6 17 C8 19 8 21 6 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18 3 C16 5 16 8 18 10 C20 12 20 15 18 17 C16 19 16 21 18 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="6" y1="7" x2="18" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="6" y1="17" x2="18" y2="17" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+    <!-- lock -->
+    <symbol id="ico-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 11V7a4 4 0 018 0v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="16" r="1.5" fill="currentColor"/></symbol>
+    <!-- leaf -->
+    <symbol id="ico-leaf" viewBox="0 0 24 24"><path d="M21 3 C21 3 14 3 9 8 C4 13 3 21 3 21 C3 21 10 20 15 15 C20 10 21 3 21 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 21 L9 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- pill -->
+    <symbol id="ico-pill" viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="10" x2="12" y2="14" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <!-- microscope -->
+    <symbol id="ico-microscope" viewBox="0 0 24 24"><path d="M6 21h12M9 21v-2a3 3 0 016 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16 A5 5 0 1 0 12 6" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="11" x2="12" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9.5" y1="6" x2="14.5" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="3" x2="13" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="3" x2="12" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- shield -->
+    <symbol id="ico-shield" viewBox="0 0 24 24"><path d="M12 3 L20 7 V12 C20 16.4 16.4 20.2 12 21 C7.6 20.2 4 16.4 4 12 V7 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <!-- skull -->
+    <symbol id="ico-skull" viewBox="0 0 24 24"><path d="M9 22h6M10 22v-2M14 22v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 13 A7 7 0 0 1 19 13 V18 H5 V13Z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="13" r="1.5" fill="currentColor"/><circle cx="15" cy="13" r="1.5" fill="currentColor"/></symbol>
+    <!-- chart -->
+    <symbol id="ico-chart" viewBox="0 0 24 24"><polyline points="3 17 8 12 12 15 16 10 21 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- warning -->
+    <symbol id="ico-warn" viewBox="0 0 24 24"><path d="M12 3 L21 20 H3 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="17" r="0.8" fill="currentColor"/></symbol>
+    <!-- trade -->
+    <symbol id="ico-trade" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 7h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 21l-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 17H3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- check -->
+    <symbol id="ico-check" viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <!-- biohazard -->
+    <symbol id="ico-bio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 10 A4 4 0 0 1 15.46 14.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 10 A4 4 0 0 0 8.54 14.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M15.46 14.5 A4 4 0 0 1 8.54 14.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 14 L12 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8.54 14.5 L2 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M15.46 14.5 L22 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- x -->
+    <symbol id="ico-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <!-- clock -->
+    <symbol id="ico-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="12 7 12 12 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- world -->
+    <symbol id="ico-world" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 12h18M12 3 C10 6 9 9 9 12 C9 15 10 18 12 21 M12 3 C14 6 15 9 15 12 C15 15 14 18 12 21" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+    <!-- mutate -->
+    <symbol id="ico-mutate" viewBox="0 0 24 24"><path d="M12 3 C16 3 20 7 20 12 C20 17 16 21 12 21 C8 21 4 17 4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 12 L7 9 M4 12 L7 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="9.5" x2="12" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="14.5" y1="12" x2="17" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+    <!-- money -->
+    <symbol id="ico-money" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="9" x2="6" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="18" y1="9" x2="18" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- online -->
+    <symbol id="ico-online" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 12h20M12 2c-3 3-4 6-4 10s1 7 4 10M12 2c3 3 4 6 4 10s-1 7-4 10" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+    <!-- local -->
+    <symbol id="ico-local" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <!-- copy -->
+    <symbol id="ico-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <!-- users -->
+    <symbol id="ico-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ===== TITLE ===== -->
+<div id="s-title" class="screen active">
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;text-align:center">
+    <div class="t-main"><span class="t-main-r">OUT</span>BREAK</div>
+    <div class="t-sub">A HIDDEN ROLE INFECTION GAME &bull; 3–6 PLAYERS</div>
+    <button class="btn btn-r btn-lg" onclick="goMode()">
+      <span class="icon icon-sm"><svg><use href="#ico-bio"/></svg></span>
+      &nbsp;INITIALISE GAME
+    </button>
+  </div>
+  <div class="t-version">v3.0</div>
+</div>
+
+<!-- ===== MODE SELECT ===== -->
+<div id="s-mode" class="screen">
+  <div class="mode-wrap">
+    <div class="label mb12" style="text-align:center">// SELECT MODE</div>
+    <div class="mode-card" onclick="goSetup()">
+      <div class="row gap-sm mb8">
+        <span class="icon icon-sm" style="color:var(--g)"><svg><use href="#ico-local"/></svg></span>
+        <div class="mode-card-title" style="color:var(--g)">LOCAL — PASS & PLAY</div>
+      </div>
+      <div class="mode-card-desc">All players share one device. Pass it around between turns. Classic tabletop style. 3–6 players.</div>
+    </div>
+    <div class="mode-card" onclick="goOnlineEntry()">
+      <div class="row gap-sm mb8">
+        <span class="icon icon-sm" style="color:var(--b)"><svg><use href="#ico-online"/></svg></span>
+        <div class="mode-card-title" style="color:var(--b)">ONLINE — ROOM CODE</div>
+      </div>
+      <div class="mode-card-desc">Each player uses their own device. Host creates a room, shares a code. Turns auto-advance. Your dashboard is always private.</div>
+    </div>
+    <button class="btn btn-dim btn-sm btn-full mt12" onclick="showScreen('s-title')">← BACK</button>
+  </div>
+</div>
+
+<!-- ===== ONLINE ENTRY ===== -->
+<div id="s-online-entry" class="screen">
+  <div style="width:100%;max-width:480px;padding:28px 16px;margin:0 auto">
+    <div class="label mb12">// ONLINE MODE</div>
+    <div class="mode-card" onclick="goHostLobby()">
+      <div class="row gap-sm mb8">
+        <span class="icon icon-sm" style="color:var(--g)"><svg><use href="#ico-users"/></svg></span>
+        <div class="mode-card-title" style="color:var(--g)">CREATE ROOM</div>
+      </div>
+      <div class="mode-card-desc">Host a new game. Get a room code to share with friends. 3–6 players.</div>
+    </div>
+    <div class="panel mt12">
+      <div class="panel-hd">JOIN EXISTING ROOM</div>
+      <div class="label mb4" style="font-size:.65rem">YOUR NAME</div>
+      <input class="inp mb10" id="join-name-inp" type="text" placeholder="Your name…" maxlength="20">
+      <div class="label mb4" style="font-size:.65rem">ROOM CODE</div>
+      <input class="inp mb10" id="join-code-inp" type="text" placeholder="e.g. XK4P9M" maxlength="8" style="text-transform:uppercase;letter-spacing:.2em;font-family:var(--fd);font-size:1.2rem" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-b btn-full" onclick="joinRoom()">JOIN ROOM →</button>
+    </div>
+    <button class="btn btn-dim btn-sm btn-full mt10" onclick="showScreen('s-mode')">← BACK</button>
+  </div>
+</div>
+
+<!-- ===== HOST LOBBY ===== -->
+<div id="s-lobby" class="screen">
+  <div class="lobby-wrap">
+    <div class="label mb4">// ROOM CODE — SHARE WITH PLAYERS</div>
+    <div class="room-code-display" id="room-code-disp" onclick="copyRoomCode()">
+      <span id="room-code-text">——————</span>
+      <span class="icon icon-sm dim" style="margin-left:8px"><svg><use href="#ico-copy"/></svg></span>
+    </div>
+    <div class="tiny dim text-center mb12">Click to copy. Players join from the online entry screen.</div>
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm"><svg><use href="#ico-users"/></svg></span>PLAYERS
+        <span class="ml-auto label" id="lobby-count">1 / 6</span>
+      </div>
+      <div id="lobby-player-list" class="col gap-sm"></div>
+      <div class="tiny dim mt8">Min 3 players to start.</div>
+    </div>
+    <div class="panel mt10">
+      <div class="panel-hd">HOST NAME</div>
+      <input class="inp" id="host-name-inp" type="text" placeholder="Your name…" maxlength="20" oninput="updateHostName()">
+    </div>
+    <button class="btn btn-g btn-lg btn-full mt12" id="btn-start-online" onclick="hostStartGame()" disabled>LAUNCH GAME →</button>
+    <div class="tiny dim text-center mt8" id="lobby-hint">Need at least 3 players</div>
+    <button class="btn btn-dim btn-sm btn-full mt8" onclick="cancelLobby()">CANCEL</button>
+  </div>
+</div>
+
+<!-- ===== WAITING / BETWEEN TURNS (online) ===== -->
+<div id="s-waiting" class="screen">
+  <div class="waiting-inner">
+    <div class="icon icon-xl" style="color:var(--b);display:block;margin:0 auto 16px;width:44px;height:44px"><svg><use href="#ico-online"/></svg></div>
+    <div id="waiting-title" class="hd xl b" style="margin-bottom:6px">CONNECTED</div>
+    <div class="label dim" id="waiting-sub">WAITING FOR GAME TO START</div>
+    <div class="panel mt16">
+      <div class="panel-hd"><span class="icon icon-sm"><svg><use href="#ico-users"/></svg></span>PLAYERS</div>
+      <div id="waiting-player-list" class="col gap-sm"></div>
+    </div>
+    <div class="tiny dim pulse mt16" id="waiting-spinner">
+      <span class="spinner"></span>&nbsp; Waiting…
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETUP ===== -->
+<div id="s-setup" class="screen">
+  <div class="setup-wrap">
+    <div class="label mb12">// REGISTER PLAYERS</div>
+    <div id="player-rows"></div>
+    <div class="row gap mt12">
+      <button class="btn btn-dim btn-sm" onclick="addPlayer()" id="btn-add">+ ADD</button>
+      <button class="btn btn-dim btn-sm" onclick="removePlayer()" id="btn-rem">− REMOVE</button>
+    </div>
+    <button class="btn btn-g btn-lg btn-full mt16" onclick="startGame()" style="margin-top:20px">LAUNCH →</button>
+    <button class="btn btn-dim btn-sm btn-full mt8" onclick="showScreen('s-mode')">← BACK</button>
+  </div>
+</div>
+<div id="s-handoff" class="screen">
+  <div class="handoff-c col acen jcen" style="min-height:100vh">
+    <div class="icon icon-xl dim"><svg><use href="#ico-lock"/></svg></div>
+    <div class="label mt12" id="handoff-sub">PASS DEVICE TO</div>
+    <div class="handoff-name" id="handoff-name">PLAYER</div>
+    <button class="btn btn-g btn-lg mt24" onclick="revealRole()">I HAVE THE DEVICE →</button>
+  </div>
+</div>
+
+<!-- ===== ROLE REVEAL ===== -->
+<div id="s-role" class="screen">
+  <div id="role-content" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px"></div>
+</div>
+
+<!-- ===== PUBLIC BOARD ===== -->
+<div id="s-board" class="screen">
+  <!-- Online turn status (hidden in local mode) -->
+  <div id="ots-wrap" style="padding:14px 14px 0;display:none">
+    <div id="ots-panel" class="ots-panel"></div>
+  </div>
+  <div class="board-top" style="padding:14px 14px 0">
+    <div class="board-title">OUTBREAK</div>
+    <div class="label" id="board-round">ROUND 1</div>
+  </div>
+  <div style="padding:0 14px;display:flex;flex-direction:column;gap:12px;padding-bottom:14px">
+
+  <div class="stat-grid">
+    <div class="stat-box">
+      <div class="label">Population</div>
+      <div class="stat-val g" id="stat-pop">7.8B</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Infected</div>
+      <div class="stat-val a" id="stat-inf">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Deaths</div>
+      <div class="stat-val r" id="stat-dead">0</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm"><svg><use href="#ico-chart"/></svg></span>THREAT LEVEL</div>
+    <div class="bar-track tall">
+      <div class="bar-fill" id="threat-fill" style="width:0%;background:linear-gradient(90deg,var(--a),var(--r))"></div>
+    </div>
+    <div class="row jbet mt8">
+      <span class="tiny dim">CONTAINED</span>
+      <span class="label r" id="threat-label">LEVEL 0</span>
+      <span class="tiny dim">EXTINCTION</span>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div class="panel-hd" style="padding:10px 14px;margin-bottom:0"><span class="icon icon-sm"><svg><use href="#ico-world"/></svg></span>GLOBAL INFECTION HEATMAP</div>
+    <div style="position:relative;width:100%;background:#080e14">
+      <canvas id="world-map-canvas" style="width:100%;display:block"></canvas>
+      <div id="map-legend" style="position:absolute;bottom:8px;right:8px;display:flex;align-items:center;gap:6px;background:rgba(6,11,16,.8);padding:4px 8px;border:1px solid var(--border)">
+        <div style="width:40px;height:6px;background:linear-gradient(90deg,rgba(245,166,35,0.3),rgba(232,53,74,1));border-radius:2px"></div>
+        <span class="tiny dim" style="font-size:.58rem">LOW → CRITICAL</span>
+      </div>
+    </div>
+    <div class="regions-grid" id="regions-grid" style="padding:10px 14px 14px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm"><svg><use href="#ico-warn"/></svg></span>KNOWN INTEL</div>
+    <div class="symptom-wrap" id="symptom-list"><span class="tiny dim">— NO DATA YET —</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hd">TURN ORDER</div>
+    <div id="turn-list" class="col gap-sm"></div>
+  </div>
+
+  <button class="btn btn-a btn-full" id="btn-next-turn" onclick="nextTurn()">BEGIN TURNS →</button>
+  <div style="height:16px"></div>
+  </div><!-- end inner padding div -->
+</div><!-- end s-board -->
+
+<!-- ===== PATHOGEN DASHBOARD ===== -->
+<div id="s-path" class="screen">
+  <div class="path-header">
+    <div class="icon icon-lg r" id="path-icon-el"><svg><use href="#ico-virus"/></svg></div>
+    <div>
+      <div class="path-role-label">PATHOGEN — CLASSIFIED</div>
+      <div class="path-type-name" id="path-type-disp">VIRUS</div>
+    </div>
+    <div class="ml-auto col" style="text-align:right">
+      <div class="label">Mut. Energy</div>
+      <div class="hd xl r" id="path-mut-pct">0%</div>
+    </div>
+  </div>
+
+  <!-- Mutation energy bar -->
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm r"><svg><use href="#ico-mutate"/></svg></span>MUTATION ENERGY</div>
+    <div class="bar-track tall">
+      <div class="bar-fill" id="mut-energy-bar" style="width:0%;background:linear-gradient(90deg,#ff6600,var(--a))"></div>
+    </div>
+    <div id="mut-ready-msg" class="tiny a pulse mt8" style="display:none">▲ THRESHOLD REACHED — TRIGGER MUTATION NOW</div>
+    <button class="btn btn-a btn-sm btn-full mt8" id="btn-trigger-mut" onclick="triggerMutationModal()" style="display:none">TRIGGER MUTATION →</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm r"><svg><use href="#ico-dna"/></svg></span>STRAIN EVOLUTION TREE</div>
+    <div class="mut-tree-wrap"><canvas id="mut-tree-canvas" style="display:block;max-width:100%"></canvas></div>
+  </div>
+
+  <!-- Active strain properties -->
+  <div class="panel">
+    <div class="panel-hd">ACTIVE STRAIN PROPERTIES</div>
+    <div id="active-strain-props"></div>
+  </div>
+
+  <!-- Pathogen actions -->
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm r"><svg><use href="#ico-warn"/></svg></span>THIS ROUND — CHOOSE ACTIONS (pick up to 2)</div>
+    <div class="action-grid" id="path-action-grid"></div>
+  </div>
+
+  <button class="btn btn-r btn-full" onclick="submitPathogenTurn()">CONFIRM TURN →</button>
+  <div id="mut-result-inline"></div>
+  <div style="height:20px"></div>
+</div>
+<div id="s-sci" class="screen">
+  <div class="sci-header">
+    <div class="icon icon-lg b"><svg><use href="#ico-microscope"/></svg></div>
+    <div>
+      <div class="label">SCIENTIST</div>
+      <div class="sci-name-disp" id="sci-name-disp">NAME</div>
+    </div>
+    <div class="ml-auto col" style="text-align:right">
+      <div class="label">Fund</div>
+      <div class="fund-disp" id="sci-fund-disp">£10,000</div>
+    </div>
+  </div>
+
+  <!-- Discovery -->
+  <div class="panel">
+    <div class="panel-hd"><span class="icon icon-sm b"><svg><use href="#ico-dna"/></svg></span>ROUND DISCOVERY</div>
+    <div id="sci-discovery"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="row gap-sm wrap">
+    <button class="btn btn-b btn-sm" onclick="sciTab('compounds')" id="tab-compounds">COMPOUNDS</button>
+    <button class="btn btn-dim btn-sm" onclick="sciTab('lab')" id="tab-lab">PLANT LAB</button>
+    <button class="btn btn-dim btn-sm" onclick="sciTab('patent')" id="tab-patent">PATENTS</button>
+    <button class="btn btn-dim btn-sm" onclick="sciTab('formula')" id="tab-formula">FORMULA</button>
+    <button class="btn btn-dim btn-sm" onclick="sciTab('revenue')" id="tab-revenue">REVENUE</button>
+  </div>
+
+  <!-- COMPOUNDS TAB -->
+  <div id="tab-pane-compounds" class="col gap">
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm"><svg><use href="#ico-flask"/></svg></span>COMPOUND LIBRARY
+        <span class="ml-auto"><button class="btn btn-b btn-sm" onclick="openOrderModal()">+ ORDER NEW</button></span>
+      </div>
+      <div class="row gap-sm mb8 wrap">
+        <button class="btn btn-dim btn-sm" onclick="freeResearch()">
+          <span class="icon icon-sm"><svg><use href="#ico-microscope"/></svg></span> DEEP RESEARCH (FREE/RND)
+        </button>
+        <button class="btn btn-dim btn-sm" onclick="openTradeModal()">
+          <span class="icon icon-sm"><svg><use href="#ico-trade"/></svg></span> TRADE INTEL (£500)
+        </button>
+      </div>
+      <div id="compound-list" class="scroll"></div>
+    </div>
+  </div>
+
+  <!-- PLANT LAB TAB -->
+  <div id="tab-pane-lab" class="col gap" style="display:none">
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm g"><svg><use href="#ico-leaf"/></svg></span>PLANT LAB
+        <span class="ml-auto tiny dim">1 free plant/round</span>
+      </div>
+      <div class="tiny dim mb8">Each round you receive a random plant sample. Synthesise it to potentially derive a new compound. Synthesis takes 2 rounds.</div>
+      <div id="plant-list"></div>
+    </div>
+  </div>
+
+  <!-- PATENT TAB -->
+  <div id="tab-pane-patent" class="col gap" style="display:none">
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm p"><svg><use href="#ico-flask"/></svg></span>PATENT MARKETPLACE
+        <span class="ml-auto"><button class="btn btn-p btn-sm" onclick="openPatentRequestModal()">+ REQUEST SAMPLE</button></span>
+      </div>
+      <div class="tiny dim mb8">Request a synthesised plant compound from another scientist. They can accept, counter-offer, or deny. Deals persist across rounds until resolved or terminated.</div>
+      <div id="patent-incoming" class="col gap-sm mb8"></div>
+      <div id="patent-outgoing" class="col gap-sm"></div>
+    </div>
+  </div>
+
+
+  <div id="tab-pane-formula" class="col gap" style="display:none">
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm g"><svg><use href="#ico-pill"/></svg></span>CURE FORMULA
+        <span class="ml-auto tiny dim">Select from library, click slot to remove</span>
+      </div>
+      <div class="formula-grid" id="formula-slots"></div>
+      <div class="tiny dim mb8">Compounds must be <span class="g">AVAILABLE</span> (not pending). Effectiveness depends on how well they match the pathogen profile.</div>
+      <div class="row gap-sm wrap">
+        <button class="btn btn-g btn-sm" onclick="submitCure()">
+          <span class="icon icon-sm"><svg><use href="#ico-check"/></svg></span> SUBMIT CURE
+        </button>
+        <button class="btn btn-dim btn-sm" onclick="clearFormula()">
+          <span class="icon icon-sm"><svg><use href="#ico-x"/></svg></span> CLEAR
+        </button>
+      </div>
+      <div id="cure-result-box" class="mt8"></div>
+    </div>
+  </div>
+
+  <!-- REVENUE TAB -->
+  <div id="tab-pane-revenue" class="col gap" style="display:none">
+    <div class="panel">
+      <div class="panel-hd"><span class="icon icon-sm g"><svg><use href="#ico-money"/></svg></span>FUNDING LOG</div>
+      <div id="revenue-log"></div>
+      <div class="tiny dim mt8">Earn grants each round based on discoveries made. Breakthroughs earn bonus funding. Publishing cured compounds earns royalties.</div>
+    </div>
+  </div>
+
+  <button class="btn btn-b btn-full" onclick="submitScientistTurn()">CONFIRM TURN →</button>
+  <div style="height:20px"></div>
+</div>
+
+<!-- ===== WIN ===== -->
+<div id="s-win" class="screen">
+  <div class="icon icon-xl" id="win-icon-el" style="margin-bottom:20px"><svg><use href="#ico-shield"/></svg></div>
+  <div class="win-title" id="win-title-el">GAME OVER</div>
+  <div class="label mt8 mb24" id="win-sub-el">The outcome has been decided.</div>
+  <div class="panel" style="max-width:400px;width:100%;text-align:left" id="win-details-el"></div>
+  <button class="btn btn-a btn-lg mt24" onclick="location.reload()">PLAY AGAIN</button>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Pathogen type select -->
+<div id="m-type" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb12">// CHOOSE YOUR FORM</div>
+    <div class="tiny dim mb12">Your biological class determines your strengths, weaknesses, and mutation possibilities. Choose wisely.</div>
+    <div id="type-picker" class="col gap-sm"></div>
+    <button class="btn btn-r btn-full mt12" id="btn-confirm-type" onclick="confirmType()" disabled>CONFIRM →</button>
+  </div>
+</div>
+
+<!-- Mutation trigger -->
+<div id="m-mutate" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb12">// TRIGGER MUTATION</div>
+    <div class="tiny dim mb12">Mutation energy threshold reached. Choose an evolution path. Stronger mutations have a higher roll requirement — higher energy = higher chance of top-tier outcomes.</div>
+    <div id="mut-path-list" class="col gap-sm"></div>
+    <div class="modal-actions row gap-sm mt12">
+      <button class="btn btn-a btn-sm" onclick="executeMutation()">EVOLVE →</button>
+      <button class="btn btn-dim btn-sm" onclick="closeModal('m-mutate')">LATER</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order compound -->
+<div id="m-order" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb12">// ORDER COMPOUND</div>
+    <div class="tiny dim mb8">Order a compound for research. Delivery takes rounds based on complexity. Cost paid upfront.</div>
+    <div id="order-list" class="col gap-sm scroll" style="max-height:360px"></div>
+    <button class="btn btn-dim btn-sm btn-full mt12" onclick="closeModal('m-order')">CANCEL</button>
+  </div>
+</div>
+
+<!-- Trade -->
+<div id="m-trade" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb12">// TRADE INTEL — £500</div>
+    <div class="tiny dim mb12">Share one of your discoveries with another scientist. Cost: £500.</div>
+    <select class="sel mb8" id="trade-target">
+      <option value="">— Select recipient —</option>
+    </select>
+    <select class="sel mb8" id="trade-disc">
+      <option value="">— Select discovery —</option>
+    </select>
+    <div class="row gap-sm mt8">
+      <button class="btn btn-b btn-sm" onclick="executeTrade()">SEND</button>
+      <button class="btn btn-dim btn-sm" onclick="closeModal('m-trade')">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm order -->
+<div id="m-confirm-order" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb8">// CONFIRM ORDER</div>
+    <div id="confirm-order-details" class="disc-box disc-development mb12" style="border-color:var(--a)"></div>
+    <div class="tiny dim mb12">Funds will be deducted immediately. Compound arrives in the stated number of rounds.</div>
+    <div class="row gap-sm">
+      <button class="btn btn-g btn-sm" onclick="confirmOrder()">CONFIRM ORDER →</button>
+      <button class="btn btn-dim btn-sm" onclick="closeModal('m-confirm-order')">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patent request -->
+<div id="m-patent-req" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb8">// REQUEST PATENT SAMPLE</div>
+    <div class="tiny dim mb12">Request a copy of a synthesised compound from another scientist's plant lab. Set your opening offer — they can accept, counter, or deny.</div>
+    <div class="col gap-sm">
+      <select class="sel" id="pat-target-sci">
+        <option value="">— Select scientist —</option>
+      </select>
+      <select class="sel" id="pat-target-compound">
+        <option value="">— Select their compound —</option>
+      </select>
+      <div class="row gap-sm" style="align-items:center">
+        <span class="tiny dim">Offer: £</span>
+        <input type="number" class="inp" id="pat-offer-amt" placeholder="e.g. 1000" min="100" step="100" style="flex:1">
+      </div>
+    </div>
+    <div class="row gap-sm mt12">
+      <button class="btn btn-p btn-sm" onclick="submitPatentRequest()">SEND REQUEST →</button>
+      <button class="btn btn-dim btn-sm" onclick="closeModal('m-patent-req')">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patent response (for receiving scientist) -->
+<div id="m-patent-resp" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="label mb8">// INCOMING PATENT REQUEST</div>
+    <div id="patent-resp-details" class="mb12"></div>
+    <div class="col gap-sm" id="patent-resp-counter" style="display:none">
+      <div class="tiny dim">Your counter-offer amount: £</div>
+      <input type="number" class="inp" id="pat-counter-amt" placeholder="Your price" min="100" step="100">
+      <button class="btn btn-a btn-sm" onclick="handlePatent(_counterPatentId,'counter')">SEND COUNTER →</button>
+    </div>
+    <div class="row gap-sm mt12 wrap" id="patent-resp-btns">
+      <button class="btn btn-g btn-sm" id="btn-pat-accept">ACCEPT</button>
+      <button class="btn btn-a btn-sm" onclick="document.getElementById('patent-resp-counter').style.display='flex'">MAKE COUNTER</button>
+      <button class="btn btn-r btn-sm" id="btn-pat-deny">DENY</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ===================================================
+//  ICON HELPER
+// ===================================================
+function ico(id,cls=''){return`<span class="icon${cls?' icon-'+cls:''}"style="display:inline-flex"><svg><use href="#ico-${id}"/></svg></span>`}
+
+// ===================================================
+//  NETWORK STATE
+// ===================================================
+const NET={
+  mode:'local',       // 'local'|'online-host'|'online-guest'
+  peer:null,
+  roomCode:null,
+  myPeerIdx:null,     // which player index am I?
+  hostConn:null,      // guest → host connection
+  guestConns:{},      // host: peerId → DataConnection
+  lobbyPlayers:[],    // [{name,peerId,playerIdx}]
+};
+
+// ===================================================
+//  MODE NAVIGATION
+// ===================================================
+function goMode(){showScreen('s-mode');}
+function goOnlineEntry(){showScreen('s-online-entry');}
+function goSetup(){showScreen('s-setup');renderPlayerRows();}
+
+// ===================================================
+//  PEERJS — HOST
+// ===================================================
+function goHostLobby(){
+  showScreen('s-lobby');
+  document.getElementById('room-code-text').textContent='——————';
+  NET.mode='online-host';
+  NET.lobbyPlayers=[];
+  NET.guestConns={};
+  // Use short alphanumeric code as peer ID
+  const code=(Math.random().toString(36).substring(2,5)+Math.random().toString(36).substring(2,5)).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,6);
+  const peer=new Peer(code,{debug:0});
+  NET.peer=peer;
+  peer.on('open',id=>{
+    NET.roomCode=id.toUpperCase();
+    const hostName=document.getElementById('host-name-inp').value.trim()||'Host';
+    NET.myPeerIdx=0;
+    NET.lobbyPlayers=[{name:hostName,peerId:id,playerIdx:0,isHost:true}];
+    document.getElementById('room-code-text').textContent=NET.roomCode;
+    updateLobbyUI();
+  });
+  peer.on('connection',conn=>{
+    conn.on('open',()=>{
+      if(NET.lobbyPlayers.length>=6){conn.send({type:'room-full'});conn.close();return;}
+      NET.guestConns[conn.peer]=conn;
+      conn.on('data',d=>handleHostMsg(conn,d));
+      conn.on('close',()=>{
+        NET.lobbyPlayers=NET.lobbyPlayers.filter(p=>p.peerId!==conn.peer);
+        delete NET.guestConns[conn.peer];
+        // Reassign indices
+        NET.lobbyPlayers.forEach((p,i)=>p.playerIdx=i);
+        broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
+        updateLobbyUI();
+      });
+    });
+  });
+  peer.on('error',err=>{
+    if(err.type==='unavailable-id'){peer.destroy();goHostLobby();}
+    else showToast('Connection error: '+err.type,'r');
+  });
+}
+
+function handleHostMsg(conn,data){
+  if(data.type==='join-request'){
+    if(NET.lobbyPlayers.length>=6){conn.send({type:'room-full'});return;}
+    const idx=NET.lobbyPlayers.length;
+    const player={name:data.name,peerId:conn.peer,playerIdx:idx,isHost:false};
+    NET.lobbyPlayers.push(player);
+    conn.send({type:'join-ok',yourIdx:idx,players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
+    broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
+    updateLobbyUI();
+  } else if(data.type==='turn-result'){
+    applyGuestTurnResult(data);
+  } else if(data.type==='cure-attempt'){
+    const result=evalCure(data.formula);
+    const target=NET.guestConns[conn.peer];
+    if(target)target.send({type:'cure-result',pct:result.pct,won:result.won,breakdown:result.breakdown});
+    if(result.won)setTimeout(()=>endGame('scientists',data.playerIdx,result.pct),300);
+  } else if(data.type==='pathogen-type-set'){
+    G.pathogen.type=data.pathogenType;
+    G.pathogen.activeProps=new Set(data.activeProps);
+    G.pathogen.mutations=data.mutations||[];
+    broadcastPublicUpdate();
+  }
+}
+
+function applyGuestTurnResult(data){
+  const pidx=data.playerIdx;
+  if(pidx===G.pathogenIdx){
+    // Apply pathogen turn
+    data.selectedActions.forEach(aid=>{
+      const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
+      if(act.suppress)G.pathogen.suppressRound=true;
+      if(act.fortify)G.pathogen.fortifyRound=true;
+    });
+    applyPathogenActions(data.selectedActions);
+    if(data.mutPath){
+      G.pathogen.mutEnergy=0;
+      applyMutation(data.mutPath);
+    }
+    if(G.pathogen.type===null&&data.pathogenType){
+      G.pathogen.type=data.pathogenType;
+      const pt=PT[data.pathogenType];
+      G.pathogen.activeProps=new Set(pt.startProps);
+      G.pathogen.mutations=[{id:'origin',label:pt.label+' ORIGIN',props:pt.startProps,round:0,parent:null}];
+    }
+  } else {
+    // Apply scientist turn
+    const sci=G.scientists[pidx];
+    if(!sci)return;
+    Object.assign(sci,data.newSciState);
+    // Apply trades
+    (data.trades||[]).forEach(t=>G.publicTrades.push(t));
+  }
+  if(G.world.pop<=0){endGame('pathogen');return;}
+  advanceTurnOnline();
+}
+
+function applyPathogenActions(actions){
+  let totalSpreadMult=1.0,totalDeathMult=1.0,totalMutGain=0,targetRegionIdx=null;
+  actions.forEach(aid=>{
+    const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
+    totalMutGain+=act.mutGain;totalSpreadMult*=act.spreadMult;totalDeathMult*=act.deathMult;
+    if(act.targetRegion)targetRegionIdx=Math.floor(Math.random()*G.regions.length);
+  });
+  let propSpreadBonus=1.0;
+  G.pathogen.activeProps.forEach(p=>{const sp=STRAIN_PROPS[p];if(sp)propSpreadBonus*=sp.spreadMult;});
+  totalSpreadMult*=propSpreadBonus;
+  const pt=PT[G.pathogen.type]||{mutBonus:0};
+  totalMutGain*=1+pt.mutBonus;
+  G.pathogen.mutEnergy=Math.min(100,G.pathogen.mutEnergy+totalMutGain);
+  const waterborne=G.pathogen.activeProps.has('waterborne');
+  G.regions.forEach((r,ri)=>{
+    let mult=totalSpreadMult;
+    if(targetRegionIdx!==null)mult=ri===targetRegionIdx?totalSpreadMult*2.5:0.2;
+    if(waterborne)mult=Math.max(mult,totalSpreadMult*0.8);
+    const baseRate=0.008+G.round*0.003;
+    const newInf=Math.min(r.pop,r.infected+r.pop*baseRate*mult*(0.8+Math.random()*0.4));
+    r.infected=Math.round(newInf*10)/10;
+  });
+  const totalInf=G.regions.reduce((s,r)=>s+r.infected,0);
+  const deathRate=(0.01+G.round*0.005)*totalDeathMult*(G.pathogen.activeProps.has('cytokine-storm')?1.8:1);
+  G.world.infected=totalInf;
+  G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+totalInf*deathRate*0.05);
+  G.world.pop=Math.max(0,7800-G.world.dead);
+}
+
+function applyMutation(mutPathId){
+  const path=MUT_PATHS.find(p=>p.id===mutPathId);if(!path)return;
+  let resultProps=[];
+  if(path.props.length>0){
+    const roll=Math.random();
+    const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);
+    const newProp=path.props[idx];
+    if(newProp&&!G.pathogen.activeProps.has(newProp)){G.pathogen.activeProps.add(newProp);resultProps.push(newProp);}
+  }
+  if(path.effect==='stealth')G.pathogen.stealthRounds=2;
+  const parentId=G.pathogen.mutations[G.pathogen.mutations.length-1]?.id||'origin';
+  G.pathogen.mutations.push({id:'mut'+G.round+mutPathId,label:path.label.substring(0,18),props:resultProps,round:G.round,parent:parentId});
+}
+
+function advanceTurnOnline(){
+  G.curTurnIdx++;
+  const allDone=G.curTurnIdx>=G.turnQueue.length;
+  broadcastPublicUpdate();
+  if(!allDone){
+    const nextPidx=G.turnQueue[G.curTurnIdx];
+    sendYourTurn(nextPidx);
+  }
+  // Update host board
+  renderBoard();
+  updateOTS();
+}
+
+function sendYourTurn(pidx){
+  if(pidx===NET.myPeerIdx){
+    // It's the host's turn — handled locally
+    return;
+  }
+  // Find the guest connection for this player
+  const lobbyP=NET.lobbyPlayers.find(p=>p.playerIdx===pidx);
+  if(!lobbyP)return;
+  const conn=NET.guestConns[lobbyP.peerId];
+  if(!conn)return;
+  const isPath=pidx===G.pathogenIdx;
+  let privateState;
+  if(isPath){
+    privateState={
+      mutEnergy:G.pathogen.mutEnergy,
+      activeProps:[...G.pathogen.activeProps],
+      mutations:G.pathogen.mutations,
+      stealthRounds:G.pathogen.stealthRounds,
+      selectedActions:[],chosenMutPath:null
+    };
+  } else {
+    const sci=G.scientists[pidx]||{};
+    privateState={
+      fund:sci.fund,compounds:sci.compounds,plants:sci.plants,
+      discoveries:sci.discoveries,pendingOrders:sci.pendingOrders,
+      revenueLog:sci.revenueLog,formula:sci.formula,
+      freeResearchDone:!!G.freeResearchUsed[`${G.round}-${pidx}`],
+      incomingTrades:G.publicTrades.filter(t=>t.to===pidx&&t.round===G.round)
+    };
+  }
+  try{conn.send({type:'your-turn',privateState,isPathogen:isPath,round:G.round});}catch(e){}
+}
+
+function broadcastToAll(msg){
+  Object.values(NET.guestConns).forEach(conn=>{try{conn.send(msg);}catch(e){}});
+}
+
+function broadcastPublicUpdate(){
+  if(NET.mode!=='online-host')return;
+  const pub=getPublicState();
+  broadcastToAll({type:'public-update',state:pub});
+}
+
+function getPublicState(){
+  return{
+    round:G.round,maxRounds:G.maxRounds,
+    world:{...G.world},
+    regions:G.regions.map(r=>({...r})),
+    knownSymptoms:[...G.knownSymptoms],
+    curTurnIdx:G.curTurnIdx,
+    turnQueue:[...G.turnQueue],
+    pathogenIdx:G.pathogenIdx,
+    players:[...G.players],
+    gameOver:G.gameOver
+  };
+}
+
+function updateLobbyUI(){
+  const count=NET.lobbyPlayers.length;
+  document.getElementById('lobby-count').textContent=`${count} / 6`;
+  const list=document.getElementById('lobby-player-list');list.innerHTML='';
+  NET.lobbyPlayers.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='player-slot connected';
+    d.innerHTML=`<div class="pslot-dot"></div><span>${p.name}</span>${i===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}`;
+    list.appendChild(d);
+  });
+  for(let i=count;i<6;i++){
+    const d=document.createElement('div');d.className='player-slot waiting';
+    d.innerHTML=`<div class="pslot-dot"></div><span>Waiting for player…</span>`;
+    list.appendChild(d);
+  }
+  const can=count>=3;
+  document.getElementById('btn-start-online').disabled=!can;
+  document.getElementById('lobby-hint').textContent=can?`${count} players connected — host can start`:`Need at least 3 players to start (${count}/3)`;
+}
+
+function copyRoomCode(){
+  if(!NET.roomCode)return;
+  navigator.clipboard.writeText(NET.roomCode).then(()=>showToast('Room code copied!','g')).catch(()=>showToast(NET.roomCode,'b'));
+}
+
+function cancelLobby(){
+  if(NET.peer){try{NET.peer.destroy();}catch(e){}NET.peer=null;}
+  NET.lobbyPlayers=[];NET.guestConns={};NET.mode='local';
+  showScreen('s-mode');
+}
+
+function updateHostName(){
+  const name=document.getElementById('host-name-inp').value.trim()||'Host';
+  if(NET.lobbyPlayers.length>0){
+    NET.lobbyPlayers[0].name=name;
+    broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
+    updateLobbyUI();
+  }
+}
+
+function hostStartGame(){
+  if(NET.lobbyPlayers.length<3){showToast('Need at least 3 players','a');return;}
+  G.players=NET.lobbyPlayers.map(p=>p.name);
+  broadcastToAll({type:'game-start',players:G.players,playerCount:G.players.length});
+  startGameLogic();
+}
+
+// ===================================================
+//  PEERJS — GUEST
+// ===================================================
+function joinRoom(){
+  const name=document.getElementById('join-name-inp').value.trim();
+  const code=document.getElementById('join-code-inp').value.trim().toUpperCase();
+  if(!name){showToast('Enter your name','a');return;}
+  if(code.length<4){showToast('Enter a valid room code','a');return;}
+  NET.mode='online-guest';
+  const peer=new Peer({debug:0});
+  NET.peer=peer;
+  showToast('Connecting…','b');
+  peer.on('open',()=>{
+    const conn=peer.connect(code,{reliable:true});
+    NET.hostConn=conn;
+    conn.on('open',()=>conn.send({type:'join-request',name}));
+    conn.on('data',d=>handleGuestMsg(d));
+    conn.on('close',()=>{if(!G.gameOver)showToast('Disconnected from host','r');});
+    conn.on('error',()=>showToast('Could not connect to room','r'));
+  });
+  peer.on('error',err=>showToast('Connection failed: '+err.type,'r'));
+}
+
+function handleGuestMsg(data){
+  switch(data.type){
+    case 'room-full':
+      showToast('Room is full','r');
+      NET.peer.destroy();showScreen('s-online-entry');break;
+    case 'join-ok':
+      NET.myPeerIdx=data.yourIdx;
+      updateWaitingPlayerList(data.players);
+      showScreen('s-waiting');
+      document.getElementById('waiting-title').textContent='CONNECTED';
+      document.getElementById('waiting-sub').textContent='WAITING FOR HOST TO START';
+      break;
+    case 'lobby-update':
+      updateWaitingPlayerList(data.players);break;
+    case 'game-start':
+      G.players=data.players;break;
+    case 'game-start-roles':
+      handleGuestGameStartRoles(data);break;
+    case 'public-update':
+      syncPublicState(data.state);
+      renderBoard();
+      updateOTS();
+      break;
+    case 'your-turn':
+      receiveYourTurn(data);break;
+    case 'cure-result':
+      showCureResultOnDash(data);break;
+    case 'game-over':
+      endGame(data.winner,data.winnerIdx,data.pct);break;
+  }
+}
+
+function updateWaitingPlayerList(players){
+  const el=document.getElementById('waiting-player-list');if(!el)return;
+  el.innerHTML=players.map(p=>`<div class="player-slot ${p.playerIdx===NET.myPeerIdx?'self connected':'connected'}">
+    <div class="pslot-dot"></div><span>${p.name}</span>
+    ${p.playerIdx===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}
+    ${p.playerIdx===NET.myPeerIdx?`<span class="label ml-auto b">YOU</span>`:''}
+  </div>`).join('');
+}
+
+function syncPublicState(state){
+  G.round=state.round;G.maxRounds=state.maxRounds;
+  Object.assign(G.world,state.world);
+  state.regions.forEach((r,i)=>{if(G.regions[i])Object.assign(G.regions[i],r);});
+  G.knownSymptoms=state.knownSymptoms;
+  G.curTurnIdx=state.curTurnIdx;
+  G.turnQueue=state.turnQueue;
+  G.pathogenIdx=state.pathogenIdx;
+  G.players=state.players;
+  G.gameOver=state.gameOver;
+}
+
+function receiveYourTurn(data){
+  // Update our private state from host
+  if(data.isPathogen){
+    G.pathogen.mutEnergy=data.privateState.mutEnergy;
+    G.pathogen.activeProps=new Set(data.privateState.activeProps);
+    G.pathogen.mutations=data.privateState.mutations||[];
+    G.pathogen.stealthRounds=data.privateState.stealthRounds||0;
+  } else {
+    const sci=G.scientists[NET.myPeerIdx]=G.scientists[NET.myPeerIdx]||{};
+    Object.assign(sci,data.privateState);
+    sci.freeResearchDone=data.privateState.freeResearchDone||false;
+    // Process orders that arrived
+    processOrders(NET.myPeerIdx);
+    givePlant(NET.myPeerIdx);
+    grantFunding(NET.myPeerIdx);
+    genDiscovery(NET.myPeerIdx);
+  }
+  // Show board with YOUR TURN highlighted
+  renderBoard();
+  showScreen('s-board');
+  updateOTS();
+}
+
+function guestSubmitTurn(turnData){
+  if(NET.mode==='online-guest'&&NET.hostConn){
+    NET.hostConn.send({type:'turn-result',playerIdx:NET.myPeerIdx,...turnData});
+  }
+  // Go back to waiting
+  showScreen('s-waiting');
+  document.getElementById('waiting-title').textContent='TURN SUBMITTED';
+  document.getElementById('waiting-sub').textContent='WAITING FOR OTHER PLAYERS';
+}
+
+function guestSubmitCure(formula){
+  if(NET.mode==='online-guest'&&NET.hostConn){
+    NET.hostConn.send({type:'cure-attempt',playerIdx:NET.myPeerIdx,formula});
+  }
+}
+
+let _cureResultCallback=null;
+function showCureResultOnDash(data){
+  const el=document.getElementById('cure-result-box');if(!el)return;
+  const qual=data.pct>=55?'PROMISING':data.pct>=35?'PARTIAL MATCH':'INSUFFICIENT';
+  const qualCol=data.pct>=55?'var(--g)':data.pct>=35?'var(--a)':'var(--r)';
+  el.innerHTML=`<div class="disc-box ${data.pct>=55?'disc-development':'disc-minor'}">
+    <div class="disc-tier">EVALUATION — ${data.pct}% match</div>
+    <div class="disc-text" style="color:${qualCol}">${qual}</div>
+    <div class="tiny dim mt8">${(data.breakdown||[]).map(b=>`<div>${b.name}: ${b.matchingTags?.length||0} tag match${b.power>=70?' ★':''}</div>`).join('')}</div>
+    <div class="tiny dim mt4">Need 72% to deploy. Refine and resubmit.</div>
+  </div>`;
+  if(data.won){endGame('scientists',NET.myPeerIdx,data.pct);}
+}
+
+// ===================================================
+//  ONLINE TURN STATUS (OTS)
+// ===================================================
+function updateOTS(){
+  if(NET.mode==='local'){
+    document.getElementById('ots-wrap').style.display='none';return;
+  }
+  document.getElementById('ots-wrap').style.display='block';
+  const panel=document.getElementById('ots-panel');
+  if(G.gameOver){panel.innerHTML='';return;}
+
+  if(G.curTurnIdx>=G.turnQueue.length){
+    // Round complete
+    if(NET.myPeerIdx===0){
+      panel.className='ots-panel ots-round-end-host';
+      panel.innerHTML=`<div class="col gap-sm">
+        <div class="label a">ROUND ${G.round} COMPLETE</div>
+        <div class="tiny dim">All turns submitted. Start the next round when ready.</div>
+        <button class="btn btn-a btn-full" onclick="onlineHostNextRound()">START ROUND ${G.round+1} →</button>
+      </div>`;
+    } else {
+      panel.className='ots-panel ots-round-end-guest';
+      panel.innerHTML=`<div class="row gap-sm"><span class="spinner"></span><span class="tiny dim ml8">Round ${G.round} complete — waiting for host to start Round ${G.round+1}…</span></div>`;
+    }
+    return;
+  }
+
+  const cur=G.turnQueue[G.curTurnIdx];
+  const isMe=cur===NET.myPeerIdx;
+
+  if(isMe){
+    const isPath=cur===G.pathogenIdx;
+    panel.className='ots-panel ots-my-turn';
+    panel.innerHTML=`<div class="col gap-sm">
+      <div class="row gap-sm">
+        <span class="label" style="color:var(--g)">YOUR TURN</span>
+        <span class="ots-role-badge" style="color:${isPath?'var(--r)':'var(--b)'};border-color:${isPath?'var(--r)':'var(--b)'}">${isPath?'PATHOGEN':'SCIENTIST'}</span>
+        <span class="tiny dim ml-auto">${G.players[cur]}</span>
+      </div>
+      <button class="btn btn-g btn-lg btn-full" onclick="onlineBeginMyTurn()">▶ &nbsp;BEGIN MY TURN</button>
+    </div>`;
+  } else {
+    panel.className='ots-panel ots-waiting';
+    const name=G.players[cur]||'Unknown';
+    panel.innerHTML=`<div class="row gap-sm">
+      <span class="spinner"></span>
+      <span class="tiny dim">&nbsp;${name.toUpperCase()} is taking their turn…</span>
+      <span class="label ml-auto dim">TURN ${G.curTurnIdx+1}/${G.turnQueue.length}</span>
+    </div>`;
+  }
+}
+
+function onlineBeginMyTurn(){
+  // Show private handoff screen then go to dashboard
+  const pidx=NET.myPeerIdx;
+  document.getElementById('handoff-name').textContent=G.players[pidx].toUpperCase();
+  document.getElementById('handoff-sub').textContent='YOUR PRIVATE TURN — TAP TO CONTINUE';
+  G.handoffPhase='online-turn';
+  showScreen('s-handoff');
+}
+
+function onlineHostNextRound(){
+  endRound();
+  // endRound calls renderBoard which calls updateOTS
+  // Then we need to kick off the first turn of the new round
+  const firstPidx=G.turnQueue[0];
+  if(firstPidx===NET.myPeerIdx){
+    // Host is first — OTS will show their turn
+    updateOTS();
+  } else {
+    sendYourTurn(firstPidx);
+    updateOTS();
+  }
+  broadcastPublicUpdate();
+}
+
+// ===================================================
+//  GAME DATA
+// ===================================================
+const PT={
+  virus:{id:'virus',label:'VIRUS',icon:'virus',col:'var(--r)',
+    traits:['Immune to all antibiotics','Faster mutation rate (+20% energy)','Envelope-disrupting compounds required'],
+    weakTags:['antiviral','lipid','spike','rna','antibody'],
+    mutBonus:0.20,resistsTag:'antibiotic',
+    startProps:['airborne','rapid-replication'],
+    desc:'Fast-evolving, antibiotic-immune RNA pathogen. Must be countered with specific antivirals.'},
+  bacteria:{id:'bacteria',label:'BACTERIA',icon:'bacteria',col:'var(--a)',
+    traits:['Vulnerable to antibiotics initially','Develops antibiotic resistance at round 4','Spreads via contact and water'],
+    weakTags:['antibiotic','enzyme','cellular','immune'],
+    mutBonus:0.05,resistsTag:null,
+    startProps:['contact-spread','toxin-producer'],
+    desc:'Cell-based pathogen. Antibiotics work early but resistance evolves. Combination therapy needed later.'},
+  protist:{id:'protist',label:'PROTIST',icon:'protist',col:'var(--g)',
+    traits:['Vector-borne primary spread','Attacks red blood cells','Extremely difficult to identify (+2 rounds to classify)'],
+    weakTags:['antiparasitic','vector','receptor','cellular'],
+    mutBonus:0.08,resistsTag:null,
+    startProps:['vector-spread','blood-attack'],
+    desc:'Eukaryotic parasite spread via insect vectors. Rare and hard to classify. Requires antiparasitic agents.'},
+  fungus:{id:'fungus',label:'FUNGUS',icon:'fungus',col:'var(--p)',
+    traits:['Near-immune to antibiotics and antivirals','Grows on immunocompromised hosts','Spreads via spores — no antibiotic effect'],
+    weakTags:['antifungal','immune'],
+    mutBonus:0.03,resistsTag:'both',
+    startProps:['spore-spread','immunotarget'],
+    desc:'Spore-forming pathogen resistant to most drugs. Only antifungal agents are effective.'},
+};
+
+// Strain property definitions — each has tags that affect cure matching
+const STRAIN_PROPS={
+  'airborne':{label:'AIRBORNE',col:'var(--r)',spreadMult:1.6,desc:'Spreads through air. High propagation.',tag:'respiratory'},
+  'rapid-replication':{label:'RAPID REPLICATION',col:'var(--r)',spreadMult:1.4,desc:'Doubles in host quickly.',tag:'antiviral'},
+  'contact-spread':{label:'CONTACT SPREAD',col:'var(--a)',spreadMult:1.3,desc:'Touch and surface transmission.',tag:null},
+  'toxin-producer':{label:'TOXIN PRODUCER',col:'var(--a)',spreadMult:1.0,desc:'Produces inflammatory toxins.',tag:'anti-inflammatory'},
+  'vector-spread':{label:'VECTOR-BORNE',col:'var(--g)',spreadMult:1.4,desc:'Spreads via insect vectors.',tag:'vector'},
+  'blood-attack':{label:'BLOOD ATTACK',col:'var(--g)',spreadMult:1.0,desc:'Destroys red blood cells.',tag:'cellular'},
+  'spore-spread':{label:'SPORE SPREAD',col:'var(--p)',spreadMult:1.5,desc:'Airborne spores — hard to filter.',tag:'antifungal'},
+  'immunotarget':{label:'IMMUNE EVASION',col:'var(--p)',spreadMult:1.2,desc:'Evades standard immune response.',tag:'immune'},
+  'neurotropic':{label:'NEUROTROPIC',col:'var(--r2)',spreadMult:1.0,desc:'Attacks CNS. Needs extra formula slot.',tag:'neuro',extraSlot:true},
+  'waterborne':{label:'WATERBORNE',col:'var(--b)',spreadMult:1.8,desc:'Water supply contaminated. All regions affected.',tag:null,allRegions:true},
+  'zoonotic':{label:'ZOONOTIC',col:'var(--a)',spreadMult:1.3,desc:'Animal reservoir. Cannot be stopped by quarantine alone.',tag:null},
+  'drug-resistant':{label:'DRUG RESISTANT',col:'var(--r)',spreadMult:1.0,desc:'One compound class nullified.',tag:null,resistance:true},
+  'structural-shift':{label:'STRUCTURAL SHIFT',col:'var(--r)',spreadMult:1.0,desc:'Protein coat altered. Old cures partially invalidated.',tag:null,invalidate:true},
+  'cytokine-storm':{label:'CYTOKINE STORM',col:'var(--r)',spreadMult:1.1,desc:'Induces deadly immune overreaction.',tag:'anti-inflammatory'},
+  'cold-resistant':{label:'COLD RESISTANT',col:'var(--b)',spreadMult:1.2,desc:'Survives cold. Northern regions now high risk.',tag:null},
+};
+
+const MUT_PATHS=[
+  {id:'transmission',label:'ENHANCED TRANSMISSION',desc:'Adds a new spread property. More regions infected.',props:['airborne','waterborne','zoonotic','cold-resistant'],icon:'mutate'},
+  {id:'evasion',label:'DRUG EVASION',desc:'Gains drug resistance or structural shift.',props:['drug-resistant','structural-shift'],icon:'shield'},
+  {id:'lethality',label:'LETHAL ADAPTATION',desc:'Adds cytokine storm or neurotropic targeting.',props:['cytokine-storm','neurotropic'],icon:'skull'},
+  {id:'stealth',label:'STEALTH MODE',desc:'No new symptoms revealed for 2 rounds. Scientists lose 1 discovery.',props:[],icon:'warn',effect:'stealth'},
+  {id:'replication',label:'RAPID REPLICATION',desc:'Boosts spread multiplier for 2 rounds.',props:['rapid-replication'],icon:'virus',effect:'replication'},
+];
+
+const PATHOGEN_ACTIONS=[
+  {id:'surge',label:'SURGE SPREAD',desc:'Aggressive push. +35% infection. +30% mut energy. Higher death toll.',mutGain:30,spreadMult:1.6,deathMult:1.5},
+  {id:'steady',label:'STEADY SPREAD',desc:'Balanced spread. +20% mut energy.',mutGain:20,spreadMult:1.1,deathMult:1.0},
+  {id:'conserve',label:'CONSERVE ENERGY',desc:'Minimal spread. +40% mut energy. Build up to mutate.',mutGain:40,spreadMult:0.6,deathMult:0.5},
+  {id:'target',label:'TARGET REGION',desc:'All spread focused on one region. Overwhelm healthcare.',mutGain:15,spreadMult:2.2,deathMult:2.0,targetRegion:true},
+  {id:'suppress',label:'SUPPRESS SYMPTOMS',desc:'Fewer symptoms revealed to scientists this round. Costs 15% energy.',mutGain:-15,spreadMult:0.8,deathMult:0.8,suppress:true},
+  {id:'fortify',label:'FORTIFY RESISTANCE',desc:'Temporarily reduce cure match accuracy by 1 for all scientists.',mutGain:10,spreadMult:0.9,deathMult:0.8,fortify:true},
+];
+
+// Compound pools with tag-based effectiveness
+const COMPOUND_POOL={
+  basic:[
+    {name:'IBUPROFEN-GX',desc:'NSAIDs-class anti-inflammatory. Reduces fever and inflammation.',tags:['anti-inflammatory'],basePower:25,cost:200,eta:1},
+    {name:'PARACETAMOL-X',desc:'Fever suppression, symptomatic relief only.',tags:['anti-inflammatory'],basePower:20,cost:150,eta:1},
+    {name:'ZINC-FORTE',desc:'Immune support. Mild antiviral activity.',tags:['immune'],basePower:22,cost:200,eta:1},
+    {name:'TETRACYCLINE-B',desc:'Broad-spectrum antibiotic. Ineffective against viruses and fungi.',tags:['antibiotic'],basePower:30,cost:250,eta:1},
+    {name:'CHLOROCIDE-1',desc:'General antimicrobial. Low efficacy as standalone.',tags:['antibiotic','immune'],basePower:25,cost:200,eta:1},
+    {name:'BRONCHODIL-R',desc:'Respiratory function support.',tags:['respiratory'],basePower:20,cost:150,eta:1},
+  ],
+  clinical:[
+    {name:'PROTEASE-9',desc:'Disrupts viral protease replication mechanism.',tags:['antiviral','enzyme'],basePower:55,cost:800,eta:2},
+    {name:'CYTOKINE-BLOCK',desc:'Suppresses cytokine storm cascade.',tags:['anti-inflammatory','immune'],basePower:60,cost:900,eta:2},
+    {name:'LIPID-SOLVENT-2',desc:'Disrupts lipid envelopes of RNA viruses.',tags:['antiviral','lipid'],basePower:55,cost:850,eta:2},
+    {name:'MACROPHAGE-T',desc:'Prevents intracellular hijacking of macrophages.',tags:['immune','cellular'],basePower:58,cost:900,eta:2},
+    {name:'ANTIBAC-RESIST',desc:'Next-gen antibiotic engineered to bypass resistance genes.',tags:['antibiotic'],basePower:62,cost:1000,eta:2},
+    {name:'ANTIFUNG-PRIME',desc:'Disrupts fungal ergosterol synthesis.',tags:['antifungal'],basePower:55,cost:900,eta:2},
+    {name:'VECTOR-CEASE',desc:'Disrupts vector-borne transmission pathway.',tags:['vector','antiparasitic'],basePower:58,cost:950,eta:2},
+    {name:'ACE2-BLOCKER',desc:'Blocks ACE2 receptor entry for certain viruses.',tags:['receptor','antiviral'],basePower:60,cost:900,eta:2},
+    {name:'NEUROSHIELD-4',desc:'Blood-brain barrier protection. Counters neurotropic adaptation.',tags:['neuro'],basePower:55,cost:1000,eta:2},
+  ],
+  targeted:[
+    {name:'SPIKE-BIND-X7',desc:'Directly neutralises viral spike proteins.',tags:['antiviral','spike'],basePower:88,cost:2500,eta:3},
+    {name:'CRISPRAZINE',desc:'CRISPR-derived RNA-targeting compound.',tags:['rna','antiviral'],basePower:90,cost:3000,eta:3},
+    {name:'MONOCLON-9',desc:'Monoclonal antibody — neutralises pathogen in trials.',tags:['antibody'],basePower:85,cost:2800,eta:3},
+    {name:'ANTIFUNG-ULTRA',desc:'Near-complete antifungal. Rare compound, very effective on spore pathogens.',tags:['antifungal'],basePower:92,cost:3200,eta:3},
+    {name:'PARASITE-X1',desc:'Targeted antiparasitic for vector-borne eukaryotes.',tags:['antiparasitic','vector'],basePower:88,cost:2600,eta:3},
+    {name:'CELL-GUARD-3',desc:'Full cellular protection against blood-attacking pathogens.',tags:['cellular','receptor'],basePower:85,cost:2800,eta:3},
+    {name:'IMMUNO-PRIME',desc:'Supercharges innate immune response. Broad synergy.',tags:['immune','antibody'],basePower:82,cost:2400,eta:3},
+  ],
+};
+
+const DISCOVERY_POOLS={
+  minor:[
+    {text:'The pathogen appears to affect the respiratory system.',tags:['respiratory']},
+    {text:'Early carriers show mild fever and fatigue.',tags:['anti-inflammatory']},
+    {text:'Incubation period estimated at 3–7 days.',tags:[]},
+    {text:'The pathogen is sensitive to temperature extremes.',tags:[]},
+    {text:'Urban centres show faster propagation.',tags:[]},
+    {text:'Elderly populations disproportionately affected.',tags:['immune']},
+    {text:'Surface contamination confirmed in affected zones.',tags:['antibiotic']},
+  ],
+  development:[
+    {text:'Airborne droplet transmission confirmed.',tags:['respiratory','antiviral']},
+    {text:'Pathogen attacks ACE2 receptors in lung tissue.',tags:['receptor','antiviral']},
+    {text:'Elevated inflammation markers in 80% of cases.',tags:['anti-inflammatory']},
+    {text:'Cytokine dysregulation identified as primary mortality driver.',tags:['anti-inflammatory','immune']},
+    {text:'The pathogen has a lipid outer envelope.',tags:['lipid','antiviral']},
+    {text:'Protease inhibitors may disrupt replication cycle.',tags:['enzyme','antiviral']},
+    {text:'Pathogen replicates inside macrophages.',tags:['cellular','immune']},
+    {text:'Vector transmission confirmed — insect reservoir identified.',tags:['vector','antiparasitic']},
+    {text:'Fungal cell wall composition detected in samples.',tags:['antifungal']},
+    {text:'Genomic RNA sequencing initiated. Partial data available.',tags:['rna','antiviral']},
+  ],
+  breakthrough:[
+    {text:'Compound X-7 binds directly to pathogen spike protein.',tags:['spike','antiviral']},
+    {text:'Full RNA sequence obtained. Targetable segment confirmed.',tags:['rna','antiviral']},
+    {text:'Monoclonal antibody trial shows neutralisation in vitro.',tags:['antibody','immune']},
+    {text:'Antifungal ergosterol pathway confirmed as primary target.',tags:['antifungal']},
+    {text:'CRISPR analysis identifies unique gene insertion site.',tags:['rna','antiviral','enzyme']},
+    {text:'Antiparasitic agent completely disrupts vector breeding cycle.',tags:['antiparasitic','vector']},
+  ],
+};
+
+const PLANTS=[
+  {name:'Artemisia annua',yieldChance:0.7,yieldTags:['antiparasitic','anti-inflammatory'],synTime:2,desc:'Traditional medicine plant. May yield antiparasitic compounds.'},
+  {name:'Cinchona bark',yieldChance:0.65,yieldTags:['antiparasitic','vector'],synTime:2,desc:'Source of quinine. Strong antiparasitic potential.'},
+  {name:'Taxus brevifolia',yieldChance:0.5,yieldTags:['cellular','antiviral'],synTime:3,desc:'Rare yew species. Complex synthesis required.'},
+  {name:'Echinacea purpurea',yieldChance:0.6,yieldTags:['immune','anti-inflammatory'],synTime:2,desc:'Well-documented immune modulator.'},
+  {name:'Camellia sinensis',yieldChance:0.55,yieldTags:['antiviral','anti-inflammatory'],synTime:2,desc:'Green tea. Polyphenols show antiviral activity.'},
+  {name:'Neem (Azadirachta)',yieldChance:0.6,yieldTags:['antifungal','antibiotic'],synTime:2,desc:'Broad antimicrobial properties.'},
+  {name:'Unknown specimen A',yieldChance:0.3,yieldTags:['rna','antiviral'],synTime:3,desc:'Unclassified. High-risk, high-reward synthesis.'},
+  {name:'Mushroom spore M-7',yieldChance:0.4,yieldTags:['immune','cellular'],synTime:3,desc:'Rare fungal sample. Possible immunomodulator.'},
+  {name:'Dead coral sample',yieldChance:0.2,yieldTags:[],synTime:1,desc:'Likely inert. Low synthesis potential.'},
+  {name:'Lichen fragment LX',yieldChance:0.35,yieldTags:['antibiotic','antifungal'],synTime:2,desc:'May yield novel antimicrobial compounds.'},
+  {name:'Mangrove root extract',yieldChance:0.5,yieldTags:['anti-inflammatory','receptor'],synTime:2,desc:'Shows receptor-blocking activity in early tests.'},
+  {name:'Unidentified seeds',yieldChance:0.25,yieldTags:[],synTime:1,desc:'Unknown provenance. Likely benign.'},
+];
+
+// ===================================================
+//  GAME STATE
+// ===================================================
+const G={
+  players:[],round:1,maxRounds:14,
+  pathogenIdx:0,
+  turnQueue:[],curTurnIdx:0,
+  handoffPhase:'roleReveal',
+  roleRevealIdx:0,
+  pathogen:{
+    type:null,mutEnergy:0,
+    activeProps:new Set(),
+    mutations:[],// tree nodes
+    resistedTag:null,
+    stealthRounds:0,
+    fortifyRound:false,
+    suppressRound:false,
+    selectedActions:[],
+    targetRegion:null,
+    chosenMutPath:null,
+  },
+  scientists:{},// idx -> sci state
+  world:{pop:7800,infected:0,dead:0},
+  regions:[
+    {name:'N. AMERICA',pop:580,infected:0},
+    {name:'EUROPE',pop:750,infected:0},
+    {name:'E. ASIA',pop:2300,infected:0},
+    {name:'S. ASIA',pop:1900,infected:0},
+    {name:'AFRICA',pop:1400,infected:0},
+    {name:'OCEANIA',pop:42,infected:0},
+  ],
+  knownSymptoms:[],
+  publicTrades:[],
+  patents:[],
+  freeResearchUsed:{},
+  gameOver:false,
+};
+
+// ===================================================
+//  SETUP
+// ===================================================
+let _playerCount=3;
+function goSetup(){showScreen('s-setup');renderPlayerRows()}
+function renderPlayerRows(){
+  const el=document.getElementById('player-rows');el.innerHTML='';
+  for(let i=0;i<_playerCount;i++){
+    const d=document.createElement('div');d.className='row gap-sm mt8 fade-up';
+    d.style.animationDelay=i*0.05+'s';
+    d.innerHTML=`<span class="label" style="width:20px">${i+1}</span>
+    <input class="inp" id="pn${i}" type="text" placeholder="Player ${i+1} name…" value="${G.players[i]||''}" oninput="G.players[${i}]=this.value">`;
+    el.appendChild(d);
+  }
+  document.getElementById('btn-add').disabled=_playerCount>=6;
+  document.getElementById('btn-rem').disabled=_playerCount<=3;
+}
+function addPlayer(){if(_playerCount<6){_playerCount++;renderPlayerRows()}}
+function removePlayer(){if(_playerCount>3){_playerCount--;G.players.splice(_playerCount,1);renderPlayerRows()}}
+function startGame(){
+  G.players=[];
+  document.querySelectorAll('[id^="pn"]').forEach((inp,i)=>G.players.push(inp.value.trim()||`Player ${i+1}`));
+  NET.mode='local';NET.myPeerIdx=0;
+  startGameLogic();
+}
+function startGameLogic(){
+  G.pathogenIdx=Math.floor(Math.random()*G.players.length);
+  G.players.forEach((_,i)=>{
+    if(i!==G.pathogenIdx){
+      G.scientists[i]={fund:10000,compounds:[],plants:[],formula:[],discoveries:[],revenueLog:[],freeResearchDone:false,selectedCompIdx:null,cureAttempts:0,plantThisRound:false,pendingOrders:[],pendingSynths:[]};
+      addStartingCompounds(i);
+    }
+  });
+  G.turnQueue=[...G.players.keys()].filter(i=>i!==G.pathogenIdx);
+  G.turnQueue.push(G.pathogenIdx);
+  G.curTurnIdx=0;G.roleRevealIdx=0;G.handoffPhase='roleReveal';
+  if(NET.mode==='local'){showHandoff();}
+  else{
+    // Online: show each player their own role on their own device
+    renderRoleCard(NET.myPeerIdx);showScreen('s-role');
+    if(NET.mode==='online-host'){
+      // Tell guests to show role reveal
+      broadcastToAll({type:'game-start-roles',pathogenIdx:G.pathogenIdx,players:G.players,turnQueue:G.turnQueue});
+    }
+  }
+}
+function addStartingCompounds(idx){
+  const sci=G.scientists[idx];
+  const pool=COMPOUND_POOL.basic;
+  [pool[0],pool[3]].forEach(c=>sci.compounds.push({...c,eta:0,available:true,researched:false}));
+}
+
+// Handle online guest receiving game-start-roles  
+function handleGuestGameStartRoles(data){
+  G.pathogenIdx=data.pathogenIdx;
+  G.players=data.players;
+  G.turnQueue=data.turnQueue;
+  G.curTurnIdx=0;
+  // Setup scientist state if I'm a scientist
+  if(NET.myPeerIdx!==G.pathogenIdx){
+    G.scientists[NET.myPeerIdx]={fund:10000,compounds:[],plants:[],formula:[],discoveries:[],revenueLog:[],freeResearchDone:false,selectedCompIdx:null,cureAttempts:0,plantThisRound:false,pendingOrders:[],pendingSynths:[]};
+    addStartingCompounds(NET.myPeerIdx);
+  }
+  renderRoleCard(NET.myPeerIdx);showScreen('s-role');
+}
+
+// ===================================================
+//  HANDOFF / REVEAL
+// ===================================================
+function showHandoff(){
+  let name;
+  if(G.handoffPhase==='roleReveal'){name=G.players[G.roleRevealIdx];}
+  else{name=G.players[G.turnQueue[G.curTurnIdx]];}
+  document.getElementById('handoff-name').textContent=name.toUpperCase();
+  document.getElementById('handoff-sub').textContent=G.handoffPhase==='roleReveal'?'PASS DEVICE TO':'YOUR TURN BEGINS';
+  showScreen('s-handoff');
+}
+function revealRole(){
+  if(G.handoffPhase==='online-turn'){
+    // Online mode: go directly to dashboard
+    const pidx=NET.myPeerIdx;
+    if(pidx===G.pathogenIdx){renderPathogenDash();showScreen('s-path');}
+    else{renderScientistDash(pidx);showScreen('s-sci');}
+    return;
+  }
+  if(G.handoffPhase==='roleReveal'){
+    renderRoleCard(G.roleRevealIdx);showScreen('s-role');
+  } else {
+    const pidx=G.turnQueue[G.curTurnIdx];
+    if(pidx===G.pathogenIdx){renderPathogenDash();showScreen('s-path');}
+    else{renderScientistDash(pidx);showScreen('s-sci');}
+  }
+}
+function renderRoleCard(idx){
+  const isPath=idx===G.pathogenIdx;
+  const el=document.getElementById('role-content');
+  const col=isPath?'var(--r)':'var(--b)';
+  if(isPath){
+    el.innerHTML=`<div class="role-wrap">
+      <div class="role-card" style="border-color:${col};color:${col}">
+        <div class="row gap mb12">${ico('bio','lg')}<div><div class="label dim">TOP SECRET</div><div class="hd xl r">YOU ARE THE PATHOGEN</div></div></div>
+        <div class="tiny dim" style="margin-bottom:16px">You are the infection itself. Spread, mutate, and destroy humanity before scientists develop a cure. Choose your biological class — it determines your entire strategy.</div>
+        <div id="type-picker-card" class="col gap-sm mb12"></div>
+        <button class="btn btn-r btn-full" id="btn-confirm-type-card" onclick="confirmTypeCard()" disabled>CONFIRM FORM →</button>
+      </div>
+    </div>`;
+    renderTypePickerCard();
+  } else {
+    el.innerHTML=`<div class="role-wrap">
+      <div class="role-card" style="border-color:${col};color:${col}">
+        <div class="row gap mb12">${ico('microscope','lg')}<div><div class="label dim">SCIENTIST</div><div class="hd xl b">${G.players[idx].toUpperCase()}</div></div></div>
+        <div class="tiny dim" style="margin-bottom:16px">
+          You're a researcher with <span class="g">£10,000</span> in funding. Each round you receive a secret discovery. Order compounds, synthesise plants in your lab, and build a cure formula.<br><br>
+          <span class="a">Note:</span> Ordered compounds take time to arrive. Plant synthesis also takes rounds. Plan ahead.<br><br>
+          Trade discoveries with colleagues for £500. Earn grants each round from breakthroughs.
+        </div>
+        <button class="btn btn-b btn-full" onclick="onSciRoleAcknowledged()">UNDERSTOOD →</button>
+      </div>
+    </div>`;
+  }
+}
+function renderTypePickerCard(){
+  const el=document.getElementById('type-picker-card');if(!el)return;el.innerHTML='';
+  Object.entries(PT).forEach(([key,pt])=>{
+    const d=document.createElement('div');
+    d.className='strain-card';d.dataset.type=key;
+    d.innerHTML=`<div class="row gap-sm mb4">${ico(pt.icon,'sm')}<span class="hd" style="color:${pt.col}">${pt.label}</span></div>
+    <div class="tiny dim">${pt.desc}</div>
+    <div class="strain-props">${pt.startProps.map(p=>`<span class="prop-tag">${STRAIN_PROPS[p].label}</span>`).join('')}</div>`;
+    d.onclick=()=>{
+      document.querySelectorAll('#type-picker-card .strain-card').forEach(c=>c.classList.remove('active-strain'));
+      d.classList.add('active-strain');G.pathogen.type=key;
+      document.getElementById('btn-confirm-type-card').disabled=false;
+    };
+    el.appendChild(d);
+  });
+}
+function onSciRoleAcknowledged(){
+  if(NET.mode==='local'){nextRoleReveal();}
+  else{
+    // Go to board and show OTS panel — turns will come via host
+    renderBoard();showScreen('s-board');updateOTS();
+    if(NET.mode==='online-host'){
+      // Host kicks off first turn after all roles acknowledged
+      // We assume pathogen acknowledged first (they pick type and call confirmTypeCard)
+      // Scientists just go to board
+    }
+  }
+}
+function confirmTypeCard(){
+  if(!G.pathogen.type)return;
+  const pt=PT[G.pathogen.type];
+  G.pathogen.activeProps=new Set(pt.startProps);
+  G.pathogen.mutations=[{id:'origin',label:pt.label+' ORIGIN',props:pt.startProps,round:0,parent:null}];
+  if(NET.mode==='online-guest'){
+    NET.hostConn.send({type:'pathogen-type-set',pathogenType:G.pathogen.type,activeProps:[...G.pathogen.activeProps],mutations:G.pathogen.mutations});
+    renderBoard();showScreen('s-board');updateOTS();
+  } else if(NET.mode==='online-host'){
+    broadcastPublicUpdate();renderBoard();showScreen('s-board');updateOTS();
+    const firstPidx=G.turnQueue[0];
+    if(firstPidx!==NET.myPeerIdx)sendYourTurn(firstPidx);
+  } else {
+    nextRoleReveal();
+  }
+}
+function nextRoleReveal(){
+  G.roleRevealIdx++;
+  if(G.roleRevealIdx<G.players.length){showHandoff();}
+  else{renderBoard();showScreen('s-board');}
+}
+
+// ===================================================
+//  PUBLIC BOARD
+// ===================================================
+function renderBoard(){
+  document.getElementById('board-round').textContent=`ROUND ${G.round} / ${G.maxRounds}`;
+  document.getElementById('stat-pop').textContent=fmt(G.world.pop*1e6);
+  document.getElementById('stat-inf').textContent=fmt(G.world.infected*1e6);
+  document.getElementById('stat-dead').textContent=fmt(G.world.dead*1e6);
+
+  setTimeout(drawWorldHeatmap,50);
+
+  const totalAffected=G.world.infected+G.world.dead;
+  const threatPct=Math.min(100,Math.round((totalAffected/G.world.pop)*100*8));
+  document.getElementById('threat-fill').style.width=threatPct+'%';
+  const lvl=Math.min(5,Math.floor(threatPct/20)+1);
+  document.getElementById('threat-label').textContent=`LEVEL ${isNaN(lvl)||threatPct===0?0:lvl}`;
+
+  const rg=document.getElementById('regions-grid');rg.innerHTML='';
+  G.regions.forEach(r=>{
+    const pct=r.pop>0?Math.min(100,(r.infected/r.pop)*100):0;
+    const d=document.createElement('div');
+    d.className='region'+(pct>40?' crit':'');
+    d.innerHTML=`<div class="region-name">${r.name}</div>
+    <div class="region-pop">${r.pop}M</div>
+    <div class="region-inf">${fmt(r.infected*1e6)} infected</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%;background:linear-gradient(90deg,var(--a),var(--r))"></div></div>`;
+    rg.appendChild(d);
+  });
+
+  const sl=document.getElementById('symptom-list');
+  sl.innerHTML=G.knownSymptoms.length===0?'<span class="tiny dim">— NO DATA YET —</span>':G.knownSymptoms.map(s=>`<span class="symptom">${s}</span>`).join('');
+
+  const tl=document.getElementById('turn-list');tl.innerHTML='';
+  G.turnQueue.forEach((pidx,qi)=>{
+    const cur=qi===G.curTurnIdx,done=qi<G.curTurnIdx;
+    const isMe=NET.mode!=='local'&&pidx===NET.myPeerIdx;
+    const role=pidx===G.pathogenIdx?`${ico('bio','sm')} PATHOGEN`:`${ico('microscope','sm')} SCIENTIST`;
+    const d=document.createElement('div');
+    d.className='turn-row'+(cur?' cur':'')+(done?' done':'');
+    d.innerHTML=`<div class="turn-dot"></div><span>${G.players[pidx]}${isMe?' (you)':''}</span><span class="tiny dim ml-auto">${role}</span>${done?ico('check','sm'):''}`;
+    tl.appendChild(d);
+  });
+
+  // In online mode, OTS panel handles navigation — hide/show the bottom button accordingly
+  const btn=document.getElementById('btn-next-turn');
+  if(NET.mode!=='local'){
+    btn.style.display='none';
+  } else {
+    btn.style.display='';
+    if(G.curTurnIdx>=G.turnQueue.length){
+      btn.textContent='END ROUND →';btn.onclick=endRound;
+    } else {
+      btn.textContent=`PASS TO ${G.players[G.turnQueue[G.curTurnIdx]].toUpperCase()} →`;
+      btn.onclick=nextTurn;
+    }
+  }
+}
+function nextTurn(){
+  if(G.curTurnIdx>=G.turnQueue.length){endRound();return;}
+  if(NET.mode!=='local'){updateOTS();return;}
+  G.handoffPhase='turn';showHandoff();
+}
+
+// =====================================================
+//  WORLD HEATMAP — full Natural Earth 110m quality
+//  lon/lat degrees, equirectangular projection
+// =====================================================
+
+// Complete world country polygons grouped by infection region.
+// Each country is an array of [lon,lat] vertices.
+// Source: Natural Earth 110m, hand-encoded.
+const GEO_REGIONS = [
+  {
+    id:'N. AMERICA', label:'N. AMERICA', labelLon:-95, labelLat:47,
+    shapes:[
+      // Canada
+      [[-141,60],[-130,60],[-124,50],[-123,49],[-110,49],[-100,49],[-95,49],[-84,46],[-82,45],[-79,43],[-76,44],[-71,45],[-70,47],[-67,47],[-65,44],[-61,46],[-60,47],[-64,48],[-66,49],[-68,50],[-70,50],[-72,52],[-68,54],[-65,60],[-68,60],[-70,62],[-74,62],[-77,61],[-78,60],[-83,62],[-87,61],[-90,64],[-94,62],[-96,60],[-98,60],[-102,60],[-106,60],[-110,60],[-114,60],[-120,60],[-124,60],[-130,59],[-136,59],[-141,60]],
+      // Alaska
+      [[-141,60],[-141,68],[-148,70],[-156,71],[-162,70],[-166,68],[-168,66],[-168,60],[-162,55],[-152,58],[-148,60],[-144,60],[-141,60]],
+      // USA lower 48
+      [[-124,49],[-123,49],[-110,49],[-100,49],[-95,49],[-84,46],[-82,45],[-79,43],[-76,44],[-71,42],[-70,42],[-70,41],[-72,41],[-74,40],[-75,38],[-76,35],[-77,34],[-80,32],[-82,30],[-84,30],[-85,30],[-88,30],[-89,29],[-90,29],[-91,29],[-93,30],[-94,30],[-96,26],[-97,26],[-99,27],[-100,28],[-104,29],[-106,31],[-110,31],[-114,32],[-117,32],[-118,34],[-120,34],[-122,38],[-124,40],[-124,42],[-124,46],[-124,49]],
+      // Mexico
+      [[-117,32],[-114,32],[-110,24],[-106,20],[-104,19],[-97,22],[-91,18],[-88,16],[-88,18],[-90,18],[-92,18],[-94,18],[-96,19],[-97,20],[-99,22],[-100,23],[-104,19],[-106,20],[-110,24],[-114,29],[-117,32]],
+      // Central America
+      [[-83,10],[-78,9],[-77,8],[-75,10],[-77,15],[-80,16],[-83,16],[-88,16],[-92,18],[-88,16],[-83,10]],
+      // Cuba
+      [[-74,20],[-80,22],[-84,22],[-84,20],[-80,20],[-74,20]],
+      // Greenland
+      [[-44,83],[-20,83],[-18,77],[-20,72],[-22,70],[-26,65],[-44,60],[-52,64],[-56,68],[-54,74],[-44,83]],
+      // Iceland
+      [[-22,64],[-14,64],[-12,65],[-14,66],[-22,66],[-24,65],[-22,64]]
+    ]
+  },
+  {
+    id:'EUROPE', label:'EUROPE', labelLon:13, labelLat:50,
+    shapes:[
+      // Norway
+      [[5,58],[8,58],[10,59],[12,60],[14,62],[16,66],[18,68],[20,70],[24,71],[28,70],[30,68],[28,64],[26,60],[24,58],[20,56],[16,56],[14,55],[10,56],[8,58],[5,58]],
+      // Sweden
+      [[10,56],[14,55],[18,56],[20,56],[24,58],[26,60],[24,64],[20,68],[18,68],[16,66],[14,62],[12,60],[10,59],[10,56]],
+      // Finland
+      [[20,60],[24,60],[28,60],[30,62],[30,66],[28,68],[26,70],[24,70],[22,68],[20,68],[18,64],[18,60],[20,60]],
+      // Norway north
+      [[28,70],[30,70],[30,68],[28,68],[26,70],[28,70]],
+      // Denmark
+      [[8,55],[10,55],[12,56],[12,58],[10,58],[8,56],[8,55]],
+      // UK
+      [[-6,50],[-2,50],[2,51],[1,52],[1,53],[0,54],[-2,56],[-4,57],[-6,56],[-5,55],[-4,54],[-3,53],[-4,52],[-5,50],[-6,50]],
+      // Ireland
+      [[-10,52],[-8,51],[-6,52],[-6,54],[-8,54],[-10,54],[-10,52]],
+      // France + Benelux
+      [[-4,44],[-2,44],[2,44],[4,44],[6,44],[8,44],[8,48],[7,48],[6,50],[4,50],[2,51],[0,51],[-2,49],[-2,47],[-4,47],[-4,44]],
+      // Iberia
+      [[-10,36],[-8,36],[-2,36],[2,43],[0,44],[-2,44],[-4,44],[-6,44],[-8,43],[-10,42],[-10,36]],
+      // Italy
+      [[7,44],[8,44],[10,44],[14,40],[15,38],[16,38],[16,40],[14,42],[12,44],[10,44],[8,46],[7,46],[7,44]],
+      // Germany + Austria + Switzerland
+      [[6,48],[8,48],[10,48],[14,48],[16,48],[16,50],[14,52],[12,52],[10,52],[8,52],[6,52],[6,50],[6,48]],
+      // Poland + Czechia + Slovakia
+      [[14,50],[16,50],[18,50],[20,50],[22,50],[24,52],[22,54],[20,54],[18,54],[16,54],[14,54],[14,52],[14,50]],
+      // Balkans + Hungary + Romania
+      [[14,46],[16,48],[18,48],[20,48],[22,48],[24,46],[26,44],[28,44],[28,42],[26,40],[24,40],[22,40],[20,38],[18,40],[16,42],[14,44],[14,46]],
+      // Greece
+      [[22,40],[24,40],[26,38],[24,36],[22,36],[20,36],[20,38],[22,40]],
+      // Baltic states
+      [[20,54],[22,54],[24,54],[26,58],[24,60],[22,58],[20,56],[20,54]],
+      // Belarus + Ukraine
+      [[24,52],[26,52],[28,52],[32,52],[34,48],[32,46],[30,46],[28,46],[26,48],[24,50],[22,50],[22,52],[24,52]],
+      // Russia west (European part)
+      [[26,60],[28,60],[30,62],[32,62],[36,62],[38,56],[36,52],[34,52],[30,52],[28,52],[26,52],[24,54],[22,54],[20,54],[22,58],[26,60]]
+    ]
+  },
+  {
+    id:'E. ASIA', label:'E. ASIA', labelLon:108, labelLat:38,
+    shapes:[
+      // Russia (Siberia + Far East)
+      [[32,62],[36,62],[40,60],[42,60],[48,58],[54,58],[58,58],[64,62],[70,66],[74,70],[80,72],[90,72],[100,72],[110,70],[120,68],[130,66],[140,62],[144,60],[148,56],[150,52],[144,48],[138,48],[135,46],[134,44],[132,44],[130,42],[126,42],[122,42],[120,44],[118,48],[114,50],[110,54],[106,58],[100,58],[94,56],[90,54],[84,52],[78,52],[72,52],[64,52],[58,54],[54,58],[48,58],[42,60],[40,60],[36,62]],
+      // Mongolia
+      [[88,50],[92,50],[96,50],[100,50],[104,50],[108,50],[112,50],[116,48],[120,48],[122,48],[122,44],[118,44],[114,42],[110,42],[106,42],[102,44],[98,44],[94,46],[90,46],[88,48],[88,50]],
+      // China
+      [[76,38],[80,36],[84,28],[86,28],[88,28],[90,28],[92,24],[96,24],[100,22],[104,22],[108,22],[110,18],[108,12],[104,10],[100,2],[102,2],[104,4],[106,8],[108,12],[110,16],[114,22],[116,24],[120,24],[122,28],[122,32],[120,36],[118,40],[116,42],[112,42],[108,42],[106,42],[102,38],[98,38],[94,36],[90,36],[86,34],[80,34],[76,36],[76,38]],
+      // Korea
+      [[126,34],[128,36],[130,38],[128,38],[126,36],[124,36],[126,34]],
+      // Japan
+      [[130,32],[132,34],[134,36],[136,36],[138,38],[140,40],[140,42],[138,44],[136,44],[134,42],[132,36],[130,34],[130,32]],
+      // Hokkaido
+      [[140,42],[142,44],[144,44],[144,42],[142,42],[140,42]],
+      // Taiwan
+      [[120,22],[122,24],[122,22],[120,22]],
+      // Vietnam + Cambodia + Laos + Thailand
+      [[100,20],[102,18],[104,12],[102,10],[100,4],[102,2],[104,2],[106,10],[108,16],[106,18],[104,18],[102,18],[100,20]],
+      // Myanmar + Bangladesh
+      [[92,24],[94,22],[96,22],[98,22],[100,22],[100,24],[98,26],[96,28],[94,28],[92,28],[92,24]],
+      // Malaysia peninsular
+      [[100,4],[102,4],[104,4],[104,2],[102,2],[100,4]],
+      // Indonesia (Sumatra)
+      [[96,2],[98,0],[104,-2],[106,-4],[104,-6],[100,-4],[96,-2],[96,2]],
+      // Indonesia (Java)
+      [[106,-6],[108,-6],[110,-8],[112,-8],[114,-8],[112,-6],[108,-6],[106,-6]],
+      // Indonesia (Borneo)
+      [[108,2],[110,2],[116,4],[118,4],[118,0],[116,-2],[114,-4],[110,-2],[108,0],[108,2]],
+      // Philippines
+      [[118,18],[120,16],[122,14],[124,8],[122,8],[118,10],[116,14],[118,18]],
+      // Kamchatka
+      [[160,56],[162,54],[162,50],[164,50],[166,54],[162,58],[160,56]]
+    ]
+  },
+  {
+    id:'S. ASIA', label:'S. ASIA', labelLon:72, labelLat:22,
+    shapes:[
+      // India
+      [[68,36],[70,34],[72,34],[76,36],[78,36],[80,30],[82,28],[84,28],[86,28],[88,26],[90,24],[92,22],[90,20],[88,20],[86,20],[84,18],[82,16],[80,12],[78,8],[76,8],[74,12],[72,22],[68,24],[66,24],[64,22],[64,24],[68,28],[68,36]],
+      // Pakistan
+      [[62,22],[64,22],[68,24],[68,28],[70,34],[68,36],[64,36],[62,36],[60,34],[58,30],[58,26],[60,24],[62,22]],
+      // Afghanistan
+      [[62,36],[64,36],[66,38],[68,38],[70,38],[72,38],[72,36],[70,34],[68,36],[64,36],[62,36]],
+      // Iran
+      [[44,38],[46,38],[48,38],[50,38],[54,38],[58,36],[60,36],[62,36],[60,30],[58,28],[56,26],[56,24],[54,24],[52,22],[50,22],[48,24],[46,24],[44,26],[44,30],[44,34],[44,38]],
+      // Iraq + Syria + Lebanon + Jordan
+      [[36,32],[38,34],[40,36],[42,36],[44,36],[46,36],[48,34],[48,30],[46,28],[44,28],[42,30],[40,30],[38,30],[36,32]],
+      // Turkey
+      [[26,36],[28,38],[30,40],[32,40],[36,38],[38,38],[40,38],[42,38],[44,38],[44,36],[42,36],[38,36],[36,36],[34,36],[30,36],[28,36],[26,36]],
+      // Saudi Arabia + Yemen + Oman + UAE
+      [[36,28],[38,28],[40,22],[44,14],[46,14],[48,16],[50,18],[54,22],[56,24],[58,22],[56,22],[56,18],[54,14],[50,12],[46,10],[44,14],[40,22],[38,28],[36,28]],
+      // Sri Lanka
+      [[80,8],[82,8],[82,6],[80,6],[80,8]],
+      // Nepal + Bhutan
+      [[80,28],[82,28],[84,28],[86,28],[88,28],[90,28],[88,26],[86,26],[84,26],[82,26],[80,28]],
+      // Kazakhstan
+      [[52,50],[56,52],[60,52],[64,52],[68,52],[72,52],[76,50],[80,50],[80,46],[76,44],[72,42],[68,40],[64,40],[60,40],[56,40],[52,44],[52,50]],
+      // Uzbekistan + Turkmenistan + Tajikistan + Kyrgyzstan
+      [[56,40],[60,40],[64,40],[68,40],[72,38],[68,38],[66,38],[64,36],[62,36],[60,36],[58,36],[56,38],[56,40]],
+      // Middle East peninsula
+      [[36,28],[38,28],[40,28],[42,28],[44,28],[46,28],[48,26],[50,24],[52,22],[50,20],[48,18],[46,14],[44,14],[42,16],[40,18],[38,22],[36,24],[36,28]]
+    ]
+  },
+  {
+    id:'AFRICA', label:'AFRICA', labelLon:18, labelLat:2,
+    shapes:[
+      // Morocco + Algeria + Tunisia + Libya
+      [[-6,36],[0,36],[4,38],[8,38],[10,34],[12,32],[14,30],[18,28],[20,26],[24,20],[24,10],[20,10],[16,14],[12,14],[8,14],[4,12],[0,14],[-4,12],[-8,14],[-14,12],[-16,16],[-16,20],[-12,24],[-8,28],[-4,30],[-2,34],[-4,36],[-6,36]],
+      // Egypt + Sudan
+      [[24,32],[28,30],[32,28],[34,22],[36,20],[38,16],[40,16],[42,12],[42,8],[40,8],[36,8],[34,4],[32,4],[30,4],[28,4],[26,4],[24,8],[22,12],[22,16],[22,20],[24,24],[24,32]],
+      // Horn of Africa (Ethiopia, Somalia, Eritrea)
+      [[36,20],[38,18],[40,16],[42,12],[44,10],[46,10],[48,12],[50,12],[50,8],[48,4],[46,2],[44,-2],[42,-4],[40,-2],[38,0],[36,4],[36,8],[36,12],[36,20]],
+      // East Africa (Kenya, Tanzania, Uganda, Rwanda, etc.)
+      [[30,4],[34,0],[36,-4],[36,-8],[34,-12],[32,-14],[32,-18],[32,-22],[30,-18],[28,-14],[26,-10],[24,-6],[24,-2],[26,2],[28,4],[30,4]],
+      // West Africa (Nigeria, Ghana, Senegal, etc.)
+      [[-16,14],[-14,12],[-8,14],[-4,12],[0,6],[4,6],[8,6],[10,4],[12,4],[14,4],[16,4],[18,4],[20,4],[22,4],[24,4],[22,8],[20,10],[16,14],[12,14],[8,14],[4,12],[0,14],[-4,12],[-8,14],[-12,12],[-16,12],[-16,14]],
+      // Central Africa (DRC, Congo, CAR, etc.)
+      [[16,4],[18,8],[20,8],[24,4],[24,0],[24,-4],[24,-8],[22,-10],[20,-14],[18,-16],[16,-8],[14,-6],[12,-4],[12,0],[12,4],[14,4],[16,4]],
+      // Southern Africa (Angola, Zambia, Zimbabwe, Mozambique, SA)
+      [[12,-4],[14,-6],[16,-8],[18,-16],[20,-14],[22,-10],[24,-8],[26,-8],[28,-8],[30,-8],[32,-12],[34,-12],[36,-8],[36,-4],[34,0],[30,0],[28,-2],[26,-2],[24,-2],[22,-4],[20,-4],[18,-4],[16,-4],[14,-4],[12,-4]],
+      // South Africa proper
+      [[16,-28],[18,-28],[20,-30],[22,-34],[26,-34],[28,-32],[30,-30],[30,-28],[28,-26],[26,-24],[24,-24],[22,-26],[18,-28],[16,-28]],
+      // Madagascar
+      [[44,-12],[48,-14],[50,-16],[50,-22],[48,-26],[46,-24],[44,-20],[44,-16],[44,-12]]
+    ]
+  },
+  {
+    id:'OCEANIA', label:'OCEANIA', labelLon:134, labelLat:-25,
+    shapes:[
+      // Australia west
+      [[114,-22],[118,-18],[122,-16],[126,-14],[130,-12],[132,-12],[134,-12],[136,-14],[136,-18],[138,-20],[136,-24],[132,-28],[128,-32],[124,-34],[120,-34],[116,-32],[114,-26],[114,-22]],
+      // Australia east
+      [[136,-14],[138,-16],[140,-18],[142,-14],[144,-12],[148,-18],[152,-26],[154,-28],[152,-34],[148,-38],[146,-38],[144,-36],[140,-36],[138,-34],[136,-32],[136,-26],[136,-22],[136,-18],[136,-14]],
+      // Australia south
+      [[132,-28],[134,-28],[136,-30],[138,-34],[140,-36],[136,-34],[132,-34],[128,-34],[128,-32],[132,-28]],
+      // New Guinea
+      [[132,-2],[136,-4],[140,-6],[144,-6],[148,-6],[148,-8],[144,-8],[140,-8],[136,-6],[132,-4],[132,-2]],
+      // New Zealand North Island
+      [[172,-36],[174,-38],[176,-38],[178,-38],[178,-40],[176,-42],[174,-42],[172,-40],[170,-38],[172,-36]],
+      // New Zealand South Island
+      [[168,-44],[170,-44],[172,-44],[172,-46],[170,-48],[168,-46],[166,-44],[168,-44]],
+      // Sumatra (partial, already in E Asia but fill gap)
+      [[96,4],[98,2],[102,0],[104,-2],[104,-4],[100,-4],[96,-2],[96,4]]
+    ]
+  }
+];
+
+function geoToCanvas(lon, lat, cW, cH) {
+  return [(lon + 180) / 360 * cW, (90 - lat) / 180 * cH];
+}
+
+function infectionColor(pct) {
+  if (pct <= 0)    return {fill:'rgba(16,36,52,0.9)',  stroke:'rgba(22,50,68,0.7)',  glow:false};
+  if (pct < 0.04)  return {fill:`rgba(14,90,60,${0.55+pct*8})`,  stroke:'rgba(20,160,90,0.45)',  glow:false};
+  if (pct < 0.12)  return {fill:`rgba(160,120,0,${0.6+pct*2})`,  stroke:'rgba(230,160,20,0.6)',  glow:false};
+  if (pct < 0.28)  return {fill:`rgba(210,70,0,${0.65+pct*1.5})`,stroke:'rgba(255,110,20,0.75)', glow:false};
+  if (pct < 0.5)   return {fill:`rgba(210,30,40,${0.72+pct*0.4})`,stroke:'rgba(255,60,70,0.85)', glow:true};
+  return               {fill:`rgba(180,10,20,${Math.min(1,0.82+pct*0.3)})`,stroke:'rgba(255,80,90,0.95)',glow:true};
+}
+
+function drawWorldHeatmap() {
+  const canvas = document.getElementById('world-map-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cW = canvas.parentElement.clientWidth || 360;
+  const cH = Math.round(cW * 0.48);
+  canvas.style.width = cW + 'px';
+  canvas.style.height = cH + 'px';
+  canvas.width = cW * dpr;
+  canvas.height = cH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // ── Ocean ────────────────────────────────────────
+  const oceanG = ctx.createLinearGradient(0,0,0,cH);
+  oceanG.addColorStop(0,'#05101a'); oceanG.addColorStop(1,'#040c14');
+  ctx.fillStyle = oceanG; ctx.fillRect(0,0,cW,cH);
+
+  // ── Ocean texture — subtle noise dots ─────────────
+  ctx.fillStyle='rgba(10,30,46,0.25)';
+  for(let gx=0;gx<cW;gx+=18) for(let gy=0;gy<cH;gy+=14){
+    ctx.beginPath();ctx.arc(gx+(Math.sin(gx*gy)*3),gy+(Math.cos(gx+gy)*2),0.7,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Lat/lon graticule ────────────────────────────
+  ctx.lineWidth = 0.4;
+  for (let lat=-60;lat<=90;lat+=30) {
+    const [,y]=geoToCanvas(0,lat,cW,cH);
+    ctx.strokeStyle = lat===0?'rgba(30,70,90,0.8)':'rgba(16,40,55,0.5)';
+    ctx.lineWidth = lat===0?0.7:0.3;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cW,y);ctx.stroke();
+  }
+  for (let lon=-120;lon<=180;lon+=60) {
+    const [x]=geoToCanvas(lon,0,cW,cH);
+    ctx.strokeStyle='rgba(16,40,55,0.4)'; ctx.lineWidth=0.3;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cH);ctx.stroke();
+  }
+
+  // Build infection lookup
+  const infMap={};
+  G.regions.forEach(r=>{ infMap[r.name]=r.pop>0?Math.min(1,r.infected/r.pop):0; });
+
+  // ── Draw land shapes ──────────────────────────────
+  GEO_REGIONS.forEach(region => {
+    const pct = infMap[region.id] || 0;
+    const col = infectionColor(pct);
+    region.shapes.forEach(poly => {
+      ctx.save();
+      ctx.beginPath();
+      poly.forEach(([lon,lat],i)=>{
+        const [x,y]=geoToCanvas(lon,lat,cW,cH);
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+      if(col.glow){ctx.shadowColor='rgba(220,20,40,0.6)';ctx.shadowBlur=10;}
+      ctx.fillStyle=col.fill; ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.strokeStyle=col.stroke; ctx.lineWidth=0.7; ctx.stroke();
+      ctx.restore();
+    });
+  });
+
+  // ── Pulse animation for critical regions ──────────
+  const t=(Date.now()%2800)/2800;
+  const pa=Math.sin(t*Math.PI)*0.6;
+  GEO_REGIONS.forEach(region=>{
+    const pct=infMap[region.id]||0; if(pct<0.28)return;
+    region.shapes.forEach(poly=>{
+      ctx.save();
+      ctx.beginPath();
+      poly.forEach(([lon,lat],i)=>{
+        const [x,y]=geoToCanvas(lon,lat,cW,cH);
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+      ctx.strokeStyle=`rgba(255,50,70,${pa*(pct-0.28)*2})`;
+      ctx.lineWidth=2+pa*3; ctx.shadowColor='rgba(255,40,60,0.5)'; ctx.shadowBlur=8;
+      ctx.stroke(); ctx.restore();
+    });
+  });
+
+  // ── Labels ────────────────────────────────────────
+  const fs=Math.max(7,Math.min(10,cW/42));
+  GEO_REGIONS.forEach(region=>{
+    const pct=infMap[region.id]||0;
+    const [lx,ly]=geoToCanvas(region.labelLon,region.labelLat,cW,cH);
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=4;
+    ctx.font=`bold ${fs}px "Bebas Neue",sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=pct>0.01?'rgba(255,255,255,0.9)':'rgba(40,80,108,0.75)';
+    ctx.fillText(region.label,lx,ly-(pct>0?fs*0.6:0));
+    if(pct>0){
+      ctx.font=`${Math.max(6,fs-2)}px "Courier Prime",monospace`;
+      ctx.fillStyle=pct>0.28?'rgba(255,120,130,0.95)':pct>0.12?'rgba(255,180,60,0.95)':'rgba(80,210,140,0.9)';
+      ctx.fillText(Math.round(pct*100)+'%',lx,ly+fs*0.7);
+    }
+    ctx.restore();
+  });
+
+  // ── Scanlines ─────────────────────────────────────
+  for(let sy=0;sy<cH;sy+=3){
+    ctx.fillStyle='rgba(0,0,0,0.04)'; ctx.fillRect(0,sy,cW,1);
+  }
+
+  // ── Border frame ─────────────────────────────────
+  ctx.strokeStyle='rgba(28,50,68,0.8)'; ctx.lineWidth=1.5;
+  ctx.strokeRect(0,0,cW,cH);
+
+  // ── Vignette ─────────────────────────────────────
+  const vig=ctx.createRadialGradient(cW/2,cH/2,cH*0.28,cW/2,cH/2,cH*0.9);
+  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.5)');
+  ctx.fillStyle=vig; ctx.fillRect(0,0,cW,cH);
+}
+
+// ===================================================
+//  PATHOGEN DASHBOARD
+// ===================================================
+function renderPathogenDash(){
+  if(!G.pathogen.type){showToast('No pathogen type set','r');return;}
+  const pt=PT[G.pathogen.type];
+  document.getElementById('path-icon-el').innerHTML=`<svg><use href="#ico-${pt.icon}"/></svg>`;
+  document.getElementById('path-icon-el').style.color=pt.col;
+  document.getElementById('path-type-disp').textContent=pt.label;
+  document.getElementById('path-type-disp').style.color=pt.col;
+
+  // Energy
+  const e=Math.min(100,Math.round(G.pathogen.mutEnergy));
+  document.getElementById('path-mut-pct').textContent=e+'%';
+  document.getElementById('mut-energy-bar').style.width=e+'%';
+  const ready=e>=100;
+  document.getElementById('mut-ready-msg').style.display=ready?'block':'none';
+  document.getElementById('btn-trigger-mut').style.display=ready?'block':'none';
+
+  // Draw mutation tree
+  drawMutTree();
+
+  // Active strain props
+  renderActiveProps();
+
+  // Actions
+  renderPathActions();
+}
+function renderActiveProps(){
+  const el=document.getElementById('active-strain-props');
+  el.innerHTML='<div class="strain-props">'+
+    [...G.pathogen.activeProps].map(p=>{
+      const sp=STRAIN_PROPS[p];if(!sp)return'';
+      return`<span class="prop-tag active" style="border-color:${sp.col};color:${sp.col}">${sp.label}</span>`;
+    }).join('')+
+  '</div>';
+  if(G.pathogen.activeProps.size===0)el.innerHTML='<span class="tiny dim">No active strain properties yet</span>';
+}
+function renderPathActions(){
+  const el=document.getElementById('path-action-grid');el.innerHTML='';
+  G.pathogen.selectedActions=[];
+  PATHOGEN_ACTIONS.forEach(a=>{
+    const d=document.createElement('div');
+    d.className='action-card';d.dataset.id=a.id;
+    d.innerHTML=`<div class="action-title">${a.label}</div><div class="action-desc">${a.desc}</div>`;
+    d.onclick=()=>togglePathAction(d,a);
+    el.appendChild(d);
+  });
+}
+function togglePathAction(el,action){
+  const sel=G.pathogen.selectedActions;
+  if(sel.includes(action.id)){
+    sel.splice(sel.indexOf(action.id),1);el.classList.remove('selected');
+  } else {
+    if(sel.length>=2){showToast('Max 2 actions per round','a');return;}
+    sel.push(action.id);el.classList.add('selected');
+  }
+}
+
+// =====================================================
+//  HIGH-QUALITY MUTATION TREE
+// =====================================================
+function drawMutTree(){
+  const canvas=document.getElementById('mut-tree-canvas');
+  if(!canvas)return;
+  const muts=G.pathogen.mutations;
+  if(!muts||muts.length===0){canvas.width=340;canvas.height=100;return;}
+
+  const dpr=window.devicePixelRatio||1;
+  const byId={};
+  muts.forEach(m=>byId[m.id]=m);
+
+  function depth(m){if(!m.parent)return 0;const p=byId[m.parent];return p?1+depth(p):1;}
+  const levels={};
+  muts.forEach(m=>{const d=depth(m);(levels[d]=levels[d]||[]).push(m);});
+  const maxDepth=Math.max(...Object.keys(levels).map(Number));
+
+  // Node dimensions — tall enough to show prop pills below label
+  const NODE_W=150;const NODE_H=56;const LEVEL_H=130;const PAD_X=24;const PAD_Y=28;
+  const maxInLevel=Math.max(...Object.values(levels).map(a=>a.length));
+  const cssW=Math.max(360,maxInLevel*(NODE_W+24)+PAD_X*2);
+  const cssH=(maxDepth+1)*LEVEL_H+PAD_Y*2+20;
+
+  canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';
+  canvas.width=cssW*dpr;canvas.height=cssH*dpr;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  // Subtle bg grid
+  ctx.fillStyle='rgba(28,45,58,0.35)';
+  for(let gx=0;gx<cssW;gx+=22)for(let gy=0;gy<cssH;gy+=22){
+    ctx.beginPath();ctx.arc(gx,gy,0.7,0,Math.PI*2);ctx.fill();
+  }
+
+  // Node positions
+  const pos={};
+  Object.entries(levels).forEach(([d,nodes])=>{
+    const y=PAD_Y+Number(d)*LEVEL_H+NODE_H/2;
+    const totalW=nodes.length*NODE_W+(nodes.length-1)*24;
+    let x=(cssW-totalW)/2+NODE_W/2;
+    nodes.forEach(n=>{pos[n.id]={x,y};x+=NODE_W+24;});
+  });
+
+  // Bezier edges with glow
+  muts.forEach(m=>{
+    if(!m.parent||!pos[m.parent]||!pos[m.id])return;
+    const p=pos[m.parent],c=pos[m.id];
+    const midY=(p.y+NODE_H/2+c.y-NODE_H/2)/2;
+    ctx.save();
+    ctx.shadowColor='rgba(232,53,74,0.5)';ctx.shadowBlur=10;
+    const grad=ctx.createLinearGradient(p.x,p.y,c.x,c.y);
+    grad.addColorStop(0,'rgba(232,53,74,0.65)');
+    grad.addColorStop(1,'rgba(245,166,35,0.65)');
+    ctx.strokeStyle=grad;ctx.lineWidth=1.8;
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y+NODE_H/2);
+    ctx.bezierCurveTo(p.x,midY,c.x,midY,c.x,c.y-NODE_H/2);
+    ctx.stroke();
+    ctx.restore();
+    // Arrowhead
+    ctx.save();
+    ctx.fillStyle='rgba(245,166,35,0.85)';
+    ctx.translate(c.x,c.y-NODE_H/2);
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-5,-8);ctx.lineTo(5,-8);ctx.closePath();ctx.fill();
+    ctx.restore();
+  });
+
+  // Nodes
+  muts.forEach(m=>{
+    if(!pos[m.id])return;
+    const {x,y}=pos[m.id];
+    const isOrigin=m.id==='origin';
+    const [ar,ag,ab]=isOrigin?[232,53,74]:[245,166,35];
+    const accent=`rgb(${ar},${ag},${ab})`;
+    const nx=x-NODE_W/2,ny=y-NODE_H/2,r=5;
+
+    // Glow + rounded rect
+    ctx.save();
+    ctx.shadowColor=accent;ctx.shadowBlur=isOrigin?18:10;
+    const rr=(xx,yy,ww,hh,rr)=>{ctx.beginPath();ctx.moveTo(xx+rr,yy);ctx.lineTo(xx+ww-rr,yy);ctx.quadraticCurveTo(xx+ww,yy,xx+ww,yy+rr);ctx.lineTo(xx+ww,yy+hh-rr);ctx.quadraticCurveTo(xx+ww,yy+hh,xx+ww-rr,yy+hh);ctx.lineTo(xx+rr,yy+hh);ctx.quadraticCurveTo(xx,yy+hh,xx,yy+hh-rr);ctx.lineTo(xx,yy+rr);ctx.quadraticCurveTo(xx,yy,xx+rr,yy);ctx.closePath();};
+    rr(nx,ny,NODE_W,NODE_H,r);
+    const bg=ctx.createLinearGradient(nx,ny,nx,ny+NODE_H);
+    bg.addColorStop(0,'rgba(14,24,32,0.98)');
+    bg.addColorStop(1,`rgba(${ar},${ag},${ab},0.12)`);
+    ctx.fillStyle=bg;ctx.fill();
+    ctx.strokeStyle=accent;ctx.lineWidth=isOrigin?2:1.4;ctx.stroke();
+    ctx.restore();
+
+    // Left accent stripe
+    ctx.fillStyle=accent;
+    ctx.beginPath();
+    ctx.moveTo(nx,ny+r);ctx.lineTo(nx,ny+NODE_H-r);
+    ctx.quadraticCurveTo(nx,ny+NODE_H,nx+r,ny+NODE_H);
+    ctx.lineTo(nx+r,ny);ctx.quadraticCurveTo(nx,ny,nx,ny+r);
+    ctx.closePath();ctx.fill();
+
+    // Round badge (top-right)
+    if(m.round>0){
+      const bw=26,bh=14,bx=nx+NODE_W-bw-4,by=ny+4;
+      ctx.fillStyle='rgba(6,11,16,0.92)';
+      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.7)`;ctx.lineWidth=1;
+      ctx.beginPath();ctx.roundRect(bx,by,bw,bh,3);ctx.fill();ctx.stroke();
+      ctx.fillStyle=`rgba(${ar},${ag},${ab},0.95)`;
+      ctx.font='7.5px "Courier Prime",monospace';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('RND '+m.round,bx+bw/2,by+bh/2);
+    }
+
+    // Node label (top section)
+    ctx.fillStyle=isOrigin?'#ff8890':'#ffe090';
+    ctx.font=`bold ${isOrigin?10.5:9.5}px "Bebas Neue",sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='top';
+    const words=(m.label||'MUTATION').toUpperCase().split(' ');
+    const line1=words.slice(0,3).join(' ');
+    const line2=words.slice(3,6).join(' ');
+    ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=3;
+    if(line2){
+      ctx.fillText(line1.substring(0,17),x+6,ny+7);
+      ctx.fillText(line2.substring(0,17),x+6,ny+18);
+    } else {
+      ctx.fillText(line1.substring(0,17),x+6,ny+12);
+    }
+    ctx.shadowBlur=0;
+
+    // Property pills (bottom section of node)
+    const props=m.props||[];
+    if(props.length>0){
+      // Divider line
+      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.25)`;ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.moveTo(nx+10,ny+NODE_H-20);ctx.lineTo(nx+NODE_W-6,ny+NODE_H-20);ctx.stroke();
+      // Pill per prop, listed horizontally
+      let px=nx+10;
+      const pillY=ny+NODE_H-14;
+      ctx.font='7px "Bebas Neue",sans-serif';
+      ctx.textBaseline='middle';
+      props.forEach(pid=>{
+        const sp=STRAIN_PROPS[pid];
+        if(!sp)return;
+        const label=sp.label.substring(0,10);
+        const tw=ctx.measureText(label).width+8;
+        if(px+tw>nx+NODE_W-4)return;// overflow guard
+        // Extract color numbers from CSS var string
+        const pillCol=pid==='airborne'||pid==='rapid-replication'||pid==='neurotropic'||pid==='drug-resistant'||pid==='structural-shift'||pid==='cytokine-storm'?[232,53,74]:
+          pid==='waterborne'||pid==='cold-resistant'?[58,184,245]:
+          pid==='zoonotic'||pid==='toxin-producer'||pid==='contact-spread'?[245,166,35]:
+          pid==='spore-spread'||pid==='immunotarget'?[196,90,245]:
+          [41,232,160];
+        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.15)`;
+        ctx.strokeStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.7)`;ctx.lineWidth=0.7;
+        ctx.beginPath();ctx.roundRect(px,pillY-5,tw,10,2);ctx.fill();ctx.stroke();
+        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.95)`;
+        ctx.textAlign='left';
+        ctx.fillText(label,px+4,pillY);
+        px+=tw+4;
+      });
+    } else if(m.id==='origin'){
+      // Show starting props for origin
+      const startProps=[...G.pathogen.activeProps].slice(0,2);
+      let px=nx+10;
+      const pillY=ny+NODE_H-14;
+      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.25)`;ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.moveTo(nx+10,ny+NODE_H-20);ctx.lineTo(nx+NODE_W-6,ny+NODE_H-20);ctx.stroke();
+      ctx.font='7px "Bebas Neue",sans-serif';ctx.textBaseline='middle';
+      startProps.forEach(pid=>{
+        const sp=STRAIN_PROPS[pid];if(!sp)return;
+        const label=sp.label.substring(0,10);
+        const tw=ctx.measureText(label).width+8;
+        if(px+tw>nx+NODE_W-4)return;
+        ctx.fillStyle='rgba(232,53,74,0.12)';ctx.strokeStyle='rgba(232,53,74,0.5)';ctx.lineWidth=0.7;
+        ctx.beginPath();ctx.roundRect(px,pillY-5,tw,10,2);ctx.fill();ctx.stroke();
+        ctx.fillStyle='rgba(255,140,150,0.9)';ctx.textAlign='left';
+        ctx.fillText(label,px+4,pillY);
+        px+=tw+4;
+      });
+    }
+  });
+}
+
+function triggerMutationModal(){
+  const el=document.getElementById('mut-path-list');el.innerHTML='';
+  G.pathogen.chosenMutPath=null;
+  MUT_PATHS.forEach(mp=>{
+    const d=document.createElement('div');
+    d.className='strain-card';
+    d.innerHTML=`<div class="row gap-sm mb4">${ico(mp.icon,'sm')}<span class="hd a">${mp.label}</span></div>
+    <div class="tiny dim mb6">${mp.desc}</div>
+    <div class="tiny dim">Possible new properties: ${mp.props.map(p=>STRAIN_PROPS[p]?`<span style="color:${STRAIN_PROPS[p].col}">${STRAIN_PROPS[p].label}</span>`:'N/A').join(', ')||'Special effect'}</div>`;
+    d.onclick=()=>{
+      document.querySelectorAll('#mut-path-list .strain-card').forEach(c=>c.classList.remove('active-strain'));
+      d.classList.add('active-strain');G.pathogen.chosenMutPath=mp.id;
+    };
+    el.appendChild(d);
+  });
+  document.getElementById('m-mutate').style.display='flex';
+}
+
+function executeMutation(){
+  if(!G.pathogen.chosenMutPath){showToast('Choose a path','a');return;}
+  const path=MUT_PATHS.find(p=>p.id===G.pathogen.chosenMutPath);
+  if(!path)return;
+  closeModal('m-mutate');
+
+  // Energy consumed
+  G.pathogen.mutEnergy=0;
+
+  let resultProps=[];
+  let effectMsg='';
+
+  if(path.props.length>0){
+    // Roll for outcome — more energy = higher chance of strong prop
+    const energyBonus=G.pathogen.mutEnergy||0;// already reset but was 100
+    const roll=Math.random();
+    // Always get at least one prop
+    const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);
+    const newProp=path.props[idx];
+    if(newProp&&!G.pathogen.activeProps.has(newProp)){
+      G.pathogen.activeProps.add(newProp);
+      resultProps.push(newProp);
+    }
+  }
+  if(path.effect==='stealth'){G.pathogen.stealthRounds=2;effectMsg='Stealth mode active for 2 rounds.';}
+  if(path.effect==='replication'){effectMsg='Rapid replication bonus active for 2 rounds.';}
+
+  // Add to mutation tree
+  const parentId=G.pathogen.mutations[G.pathogen.mutations.length-1]?.id||'origin';
+  const mutId='mut'+G.round+path.id;
+  G.pathogen.mutations.push({
+    id:mutId,label:path.label.substring(0,18),
+    props:resultProps,round:G.round,parent:parentId
+  });
+
+  const propDescs=resultProps.map(p=>STRAIN_PROPS[p]?`<div class="prop-tag active mt4" style="border-color:${STRAIN_PROPS[p].col};color:${STRAIN_PROPS[p].col}">${STRAIN_PROPS[p].label}: ${STRAIN_PROPS[p].desc}</div>`:'').join('');
+  // Show mutation result inline in the pathogen dashboard (no modal needed)
+  const mutResultEl=document.getElementById('mut-result-inline');
+  if(mutResultEl){
+    mutResultEl.innerHTML=`<div class="disc-box disc-breakthrough mt8">
+      <div class="disc-tier">EVOLVED — ROUND ${G.round}</div>
+      <div class="disc-text">${path.label}</div>
+      ${propDescs}
+      ${effectMsg?`<div class="tiny a mt8">${effectMsg}</div>`:''}
+    </div>`;
+  }
+  showToast(resultProps.length>0?`Mutated: ${STRAIN_PROPS[resultProps[0]]?.label||'new property'}`:path.label,'r');
+  drawMutTree();
+  renderActiveProps();
+  document.getElementById('mut-ready-msg').style.display='none';
+  document.getElementById('btn-trigger-mut').style.display='none';
+  document.getElementById('path-mut-pct').textContent='0%';
+  document.getElementById('mut-energy-bar').style.width='0%';
+}
+
+function submitPathogenTurn(){
+  if(G.pathogen.selectedActions.length===0){showToast('Choose at least 1 action','a');return;}
+
+  // Process selected actions
+  let totalSpreadMult=1.0;
+  let totalDeathMult=1.0;
+  let totalMutGain=0;
+  let targetRegionIdx=null;
+
+  G.pathogen.selectedActions.forEach(aid=>{
+    const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
+    totalMutGain+=act.mutGain;
+    totalSpreadMult*=act.spreadMult;
+    totalDeathMult*=act.deathMult;
+    if(act.suppress)G.pathogen.suppressRound=true;
+    if(act.fortify)G.pathogen.fortifyRound=true;
+    if(act.targetRegion){
+      targetRegionIdx=Math.floor(Math.random()*G.regions.length);
+    }
+  });
+
+  // Apply active strain prop multipliers
+  let propSpreadBonus=1.0;
+  G.pathogen.activeProps.forEach(p=>{
+    const sp=STRAIN_PROPS[p];if(sp)propSpreadBonus*=sp.spreadMult;
+  });
+  totalSpreadMult*=propSpreadBonus;
+
+  const pt=PT[G.pathogen.type];
+  totalMutGain*=(1+pt.mutBonus);
+  G.pathogen.mutEnergy=Math.min(100,G.pathogen.mutEnergy+totalMutGain);
+
+  // Waterborne: spread all regions equally
+  const waterborne=G.pathogen.activeProps.has('waterborne');
+
+  G.regions.forEach((r,ri)=>{
+    let mult=totalSpreadMult;
+    if(targetRegionIdx!==null)mult=ri===targetRegionIdx?totalSpreadMult*2.5:0.2;
+    if(waterborne)mult=Math.max(mult,totalSpreadMult*0.8);
+    const baseRate=0.008+G.round*0.003;
+    const newInf=Math.min(r.pop,r.infected+r.pop*baseRate*mult*(0.8+Math.random()*0.4));
+    r.infected=Math.round(newInf*10)/10;
+  });
+
+  const totalInf=G.regions.reduce((s,r)=>s+r.infected,0);
+  const deathRate=(0.01+G.round*0.005)*totalDeathMult*(G.pathogen.activeProps.has('cytokine-storm')?1.8:1);
+  G.world.infected=totalInf;
+  G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+totalInf*deathRate*0.05);
+  G.world.pop=Math.max(0,7800-G.world.dead);
+
+  if(G.world.pop<=0){endGame('pathogen');return;}
+
+  if(NET.mode!=='local'){
+    // Online: send turn data to host, then go to waiting
+    const turnData={selectedActions:G.pathogen.selectedActions,mutPath:G.pathogen.chosenMutPath||null};
+    if(NET.mode==='online-guest'){guestSubmitTurn(turnData);}
+    else{applyPathogenActions(G.pathogen.selectedActions);advanceTurnOnline();}
+    return;
+  }
+  G.curTurnIdx++;
+  showToast('Pathogen turn submitted','r');
+  setTimeout(()=>{renderBoard();showScreen('s-board');},700);
+}
+
+// ===================================================
+//  SCIENTIST DASHBOARD
+// ===================================================
+let curSciIdx=null;
+let curSciTab='compounds';
+
+function renderScientistDash(pidx){
+  curSciIdx=pidx;
+  const sci=G.scientists[pidx];
+  sci.freeResearchDone=!!G.freeResearchUsed[`${G.round}-${pidx}`];
+  document.getElementById('sci-name-disp').textContent=G.players[pidx].toUpperCase();
+  document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
+
+  // Process pending orders
+  processOrders(pidx);
+
+  // Generate discovery
+  genDiscovery(pidx);
+
+  // Give plant
+  givePlant(pidx);
+
+  // Grant funding based on discoveries
+  grantFunding(pidx);
+
+  sciTab('compounds');
+  document.getElementById('cure-result-box').innerHTML='';
+}
+
+function processOrders(pidx){
+  const sci=G.scientists[pidx];
+  sci.pendingOrders=sci.pendingOrders||[];
+  sci.pendingOrders.forEach(o=>{
+    o.eta--;
+    if(o.eta<=0){
+      sci.compounds.push({...o.compound,available:true,researched:false});
+      showToast(`${o.compound.name} arrived!`,'g');
+    }
+  });
+  sci.pendingOrders=sci.pendingOrders.filter(o=>o.eta>0);
+}
+
+function genDiscovery(pidx){
+  const sci=G.scientists[pidx];
+  const r=G.round;
+  if(G.pathogen.suppressRound){
+    G.pathogen.suppressRound=false;
+    sci.discoveries.push({tier:'minor',text:'[SUPPRESSED] Pathogen concealed symptoms this round. No useful data.',tags:[],round:r});
+    renderDiscoveryBox(pidx);return;
+  }
+  const btChance=Math.min(0.18,0.01*r);
+  const devChance=Math.min(0.55,0.08+0.04*r);
+  const roll=Math.random();
+  let tier,pool;
+  if(roll<btChance){tier='breakthrough';pool=DISCOVERY_POOLS.breakthrough;}
+  else if(roll<btChance+devChance){tier='development';pool=DISCOVERY_POOLS.development;}
+  else{tier='minor';pool=DISCOVERY_POOLS.minor;}
+  const d=pool[Math.floor(Math.random()*pool.length)];
+  const disc={tier,text:d.text,tags:d.tags,round:r};
+  sci.discoveries.push(disc);
+  // Add tags to known symptoms
+  d.tags.forEach(t=>{if(!G.knownSymptoms.includes(t.toUpperCase()))G.knownSymptoms.push(t.toUpperCase());});
+  // Sort compounds by tag relevance
+  sortCompoundsByRelevance(pidx,d.tags);
+  renderDiscoveryBox(pidx);
+}
+
+function grantFunding(pidx){
+  const sci=G.scientists[pidx];
+  const lastDisc=sci.discoveries[sci.discoveries.length-1];
+  let grant=0;let reason='';
+  if(lastDisc.tier==='breakthrough'){grant=1500;reason='Breakthrough discovery grant';}
+  else if(lastDisc.tier==='development'){grant=600;reason='Development milestone grant';}
+  else{grant=200;reason='Standard research allocation';}
+  sci.fund+=grant;
+  sci.revenueLog.push({round:G.round,amount:grant,reason});
+  document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
+}
+
+function renderDiscoveryBox(pidx){
+  const sci=G.scientists[pidx];
+  const el=document.getElementById('sci-discovery');if(!el)return;
+  const disc=sci.discoveries[sci.discoveries.length-1];
+  let html=`<div class="disc-box disc-${disc.tier}">
+    <div class="disc-tier">${disc.tier.toUpperCase()} ${disc.tier==='breakthrough'?'⚡':disc.tier==='development'?'▲':'—'} ROUND ${disc.round}</div>
+    <div class="disc-text">${disc.text}</div>
+    ${disc.tags.length?`<div class="ci-tags mt8">${disc.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>`:''}
+  </div>`;
+  // Trades received
+  const trades=G.publicTrades.filter(t=>t.to===pidx&&t.round===G.round);
+  trades.forEach(t=>{
+    html+=`<div class="disc-box disc-development mt8">
+      <div class="disc-tier">INTEL RECEIVED — from ${G.players[t.from]}</div>
+      <div class="disc-text">${t.text}</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function sortCompoundsByRelevance(pidx,discoveryTags){
+  const sci=G.scientists[pidx];
+  const pathTags=G.pathogen.type?PT[G.pathogen.type].weakTags:[];
+  // Collect all known tags
+  const allTags=[...new Set([...discoveryTags,...G.knownSymptoms.map(s=>s.toLowerCase())])];
+  sci.compounds.sort((a,b)=>{
+    const scoreA=a.tags.reduce((s,t)=>{
+      if(allTags.includes(t))s+=3;
+      if(pathTags.includes(t))s+=5;
+      return s;
+    },0);
+    const scoreB=b.tags.reduce((s,t)=>{
+      if(allTags.includes(t))s+=3;
+      if(pathTags.includes(t))s+=5;
+      return s;
+    },0);
+    return scoreB-scoreA;
+  });
+}
+
+function sciTab(tab){
+  curSciTab=tab;
+  ['compounds','lab','patent','formula','revenue'].forEach(t=>{
+    document.getElementById(`tab-pane-${t}`).style.display=t===tab?'flex':'none';
+    const btn=document.getElementById(`tab-${t}`);
+    if(btn){
+      let label=t.toUpperCase();
+      if(t==='patent'){
+        const pendingCount=(G.patents||[]).filter(p=>p.to===curSciIdx&&!p.terminated&&(p.status==='pending'||p.status==='countered')).length;
+        if(pendingCount>0)label=`PATENTS <span style="background:var(--p);color:#000;font-size:.55rem;padding:1px 5px;border-radius:10px;margin-left:3px">${pendingCount}</span>`;
+      }
+      btn.innerHTML=label;
+      btn.className=t===tab?'btn btn-b btn-sm':'btn btn-dim btn-sm';
+    }
+  });
+  if(tab==='compounds')renderCompoundList();
+  if(tab==='lab')renderPlantLab();
+  if(tab==='patent')renderPatentTab();
+  if(tab==='formula'){renderFormulaSlots();renderCompoundListForFormula();}
+  if(tab==='revenue')renderRevenueLog();
+}
+
+function renderCompoundList(){
+  const sci=G.scientists[curSciIdx];if(!sci)return;
+  const el=document.getElementById('compound-list');el.innerHTML='';
+  if(sci.compounds.length===0){el.innerHTML='<div class="tiny dim">No compounds yet. Order from the button above or synthesise from plants.</div>';return;}
+  sci.compounds.forEach((c,i)=>{
+    const pending=!c.available;
+    const d=document.createElement('div');
+    d.className='compound-item'+(sci.selectedCompIdx===i?' selected':'');
+    const dots='<div class="ci-eff">'+Array.from({length:5},(_,j)=>`<div class="eff-dot ${j<Math.ceil(c.basePower/20)?'on':'off'}"></div>`).join('')+'</div>';
+    d.innerHTML=`<div class="ci-top">
+      <div class="ci-name">${ico('flask','sm')} ${c.name}</div>
+      ${pending
+        ? `<span class="ci-eta" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')}<span style="font-family:var(--fd);font-size:.7rem">${c.eta||0}R</span></span>`
+        : `<span style="font-family:var(--fd);font-size:.6rem;padding:2px 7px;border:1px solid var(--g);color:var(--g)">READY</span>`}
+    </div>
+    <div class="ci-desc">${c.desc}</div>
+    <div class="row jbet mt4">${dots}<div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>
+    ${c.researched?'<div class="tiny a mt4">'+ico('check','sm')+' Deep-researched</div>':''}
+    ${pending?`<div class="ci-pending"><div class="ci-pending-text">${ico('clock','sm')} ARRIVING IN ${c.eta}R</div></div>`:''}`;
+    if(!pending)d.onclick=()=>{sci.selectedCompIdx=sci.selectedCompIdx===i?null:i;renderCompoundList();};
+    el.appendChild(d);
+  });
+}
+
+function freeResearch(){
+  const sci=G.scientists[curSciIdx];
+  if(sci.freeResearchDone){showToast('Already used this round','a');return;}
+  if(sci.selectedCompIdx===null){showToast('Select a compound first','a');return;}
+  const c=sci.compounds[sci.selectedCompIdx];
+  if(!c.available){showToast('Compound still pending','a');return;}
+  const pathTags=PT[G.pathogen.type]?.weakTags||[];
+  const isRelevant=c.tags.some(t=>pathTags.includes(t));
+  if(isRelevant){
+    c.basePower=Math.min(100,c.basePower+15);
+    c.desc+=' [Research confirms elevated efficacy against current strain.]';
+  } else {
+    c.desc+=' [Extended testing shows limited applicability to current strain.]';
+    c.basePower=Math.max(5,c.basePower-10);
+  }
+  c.researched=true;
+  sci.freeResearchDone=true;
+  G.freeResearchUsed[`${G.round}-${curSciIdx}`]=true;
+  renderCompoundList();showToast('Deep research complete','b');
+}
+
+// ORDERS
+function openOrderModal(){
+  const sci=G.scientists[curSciIdx];
+  const el=document.getElementById('order-list');el.innerHTML='';
+  const allCompounds=[...COMPOUND_POOL.basic,...COMPOUND_POOL.clinical,...COMPOUND_POOL.targeted];
+  const owned=sci.compounds.map(c=>c.name);
+  const pending=sci.pendingOrders.map(o=>o.compound.name);
+  allCompounds.filter(c=>!owned.includes(c.name)&&!pending.includes(c.name)).forEach(c=>{
+    const d=document.createElement('div');
+    d.className='compound-item';
+    const tier=COMPOUND_POOL.basic.includes(c)?'BASIC':COMPOUND_POOL.clinical.find(x=>x.name===c.name)?'CLINICAL':'TARGETED';
+    const tierCol=tier==='BASIC'?'var(--txd)':tier==='CLINICAL'?'var(--a)':'var(--g)';
+    d.innerHTML=`<div class="ci-top">
+      <div class="ci-name">${ico('flask','sm')} ${c.name}</div>
+      <span style="font-family:var(--fd);font-size:.62rem;color:${tierCol}">${tier}</span>
+    </div>
+    <div class="ci-desc">${c.desc}</div>
+    <div class="row jbet mt6">
+      <div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
+      <div class="row gap-sm">
+        <span class="tiny a" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')}<span style="font-family:var(--fd)">${c.eta}R</span></span>
+        <span class="tiny g">£${c.cost.toLocaleString()}</span>
+      </div>
+    </div>`;
+    d.onclick=()=>openConfirmOrder(c);
+    el.appendChild(d);
+  });
+  document.getElementById('m-order').style.display='flex';
+}
+
+function orderCompound(c){
+  const sci=G.scientists[curSciIdx];
+  if(sci.fund<c.cost){showToast('Insufficient funds','r');return;}
+  sci.fund-=c.cost;
+  sci.pendingOrders.push({compound:{...c},eta:c.eta});
+  sci.revenueLog.push({round:G.round,amount:-c.cost,reason:`Ordered ${c.name}`});
+  document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
+  closeModal('m-order');
+  showToast(`${c.name} ordered — arrives in ${c.eta}R`,'b');
+  renderCompoundList();
+}
+
+// PLANT LAB
+function givePlant(pidx){
+  const sci=G.scientists[pidx];
+  if(!sci.plantThisRound){
+    const plant={...PLANTS[Math.floor(Math.random()*PLANTS.length)],round:G.round,status:'fresh',synthEta:0};
+    sci.plants.push(plant);sci.plantThisRound=true;
+  }
+  // Tick synth countdowns
+  sci.plants.forEach(p=>{
+    if(p.status==='synthesising'){
+      p.synthEta--;
+      if(p.synthEta<=0){
+        // Yield roll
+        if(p.yieldChance>0&&Math.random()<p.yieldChance&&p.yieldTags.length>0){
+          const tag=p.yieldTags[Math.floor(Math.random()*p.yieldTags.length)];
+          const base=Math.floor(40+Math.random()*30);
+          const derived={name:`SYNTH-${p.name.split(' ')[0].substring(0,6).toUpperCase()}-${G.round}`,
+            desc:`Synthesised from ${p.name}. Tags: ${p.yieldTags.join(', ')}.`,
+            tags:p.yieldTags,basePower:base,available:true,researched:false,cost:0,eta:0};
+          sci.compounds.push(derived);
+          p.status='yielded';
+          showToast(`${derived.name} synthesised from ${p.name}!`,'g');
+        } else {
+          p.status='no-yield';
+        }
+      }
+    }
+  });
+}
+
+function renderPlantLab(){
+  const sci=G.scientists[curSciIdx];if(!sci)return;
+  const el=document.getElementById('plant-list');el.innerHTML='';
+  if(sci.plants.length===0){el.innerHTML='<div class="tiny dim">No plant samples yet.</div>';return;}
+  [...sci.plants].reverse().forEach((p,ri)=>{
+    const d=document.createElement('div');d.className='plant-item';
+    const statusCol=p.status==='yielded'?'var(--g)':p.status==='no-yield'?'var(--txd)':p.status==='synthesising'?'var(--a)':'var(--b)';
+    const statusLabel=p.status==='yielded'?'YIELDED COMPOUND':p.status==='no-yield'?'NO YIELD'
+      :p.status==='synthesising'
+        ?`<span style="display:inline-flex;align-items:center;gap:4px">${ico('clock','sm')}<span style="font-family:var(--fd)">${p.synthEta}R</span> SYNTHESISING</span>`
+      :'FRESH SAMPLE';
+    d.innerHTML=`<div class="row gap-sm mb4">${ico('leaf','sm')}<div>
+      <div class="plant-name">${p.name}</div>
+      <div class="plant-status">${p.desc}</div>
+      <div class="tiny mt4" style="color:${statusCol}">${statusLabel}</div>
+      <div class="ci-tags mt4">${p.yieldTags.map(t=>`<span class="ci-tag">${t}</span>`).join('')||'<span class="tiny dim">unknown potential</span>'}</div>
+    </div></div>
+    ${p.status==='fresh'?`<button class="btn btn-g btn-sm plant-synth-btn" onclick="synthesisePlant(${sci.plants.length-1-ri})">SYNTHESISE (${p.synTime}R)</button>`:''}`;
+    el.appendChild(d);
+  });
+}
+
+function synthesisePlant(idx){
+  const sci=G.scientists[curSciIdx];
+  const p=sci.plants[idx];if(!p||p.status!=='fresh')return;
+  p.status='synthesising';p.synthEta=p.synTime;
+  showToast(`Synthesis started — ${p.synTime} rounds`,'g');
+  renderPlantLab();
+}
+
+// FORMULA
+function renderFormulaSlots(){
+  const sci=G.scientists[curSciIdx];if(!sci)return;
+  const el=document.getElementById('formula-slots');if(!el)return;
+  const extraSlot=G.pathogen.activeProps.has('neurotropic');
+  const totalSlots=extraSlot?6:5;
+  el.innerHTML='';
+  for(let i=0;i<totalSlots;i++){
+    const c=sci.formula[i];
+    const d=document.createElement('div');
+    d.className='f-slot'+(c?c.available?' filled':' pending-slot':'');
+    if(c){d.textContent=c.name.split('-')[0];d.title=c.name;d.onclick=()=>{sci.formula.splice(i,1);renderFormulaSlots();};
+    }else{d.textContent=`SLOT ${i+1}`;d.onclick=()=>addToFormula(i);}
+    el.appendChild(d);
+  }
+}
+
+function renderCompoundListForFormula(){
+  // Show mini list of available compounds for formula tab
+  const sci=G.scientists[curSciIdx];
+  const existing=document.getElementById('compound-list');
+  // reuse compound tab render in formula pane
+  let html='<div class="tiny dim mb8">Click a compound below to add to formula (must be READY):</div>';
+  sci.compounds.filter(c=>c.available).forEach((c,i)=>{
+    html+=`<div class="compound-item" onclick="selectCompForFormula(${i})">`+
+      `<div class="ci-name">${ico('flask','sm')} ${c.name}</div>`+
+      `<div class="ci-desc tiny">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>`;
+  });
+  const formulaPane=document.getElementById('tab-pane-formula');
+  let miniList=formulaPane.querySelector('.mini-compound-list');
+  if(!miniList){miniList=document.createElement('div');miniList.className='mini-compound-list';formulaPane.insertBefore(miniList,formulaPane.lastElementChild);}
+  miniList.innerHTML=html;
+}
+
+function selectCompForFormula(compIdx){
+  const sci=G.scientists[curSciIdx];
+  sci.selectedCompIdx=compIdx;
+  const extraSlot=G.pathogen.activeProps.has('neurotropic');
+  const totalSlots=extraSlot?6:5;
+  if(sci.formula.length>=totalSlots){showToast('Formula full','a');return;}
+  const c=sci.compounds[compIdx];
+  if(!c.available){showToast('Not yet available','a');return;}
+  if(sci.formula.find(f=>f.name===c.name)){showToast('Already in formula','a');return;}
+  sci.formula.push(c);
+  renderFormulaSlots();showToast(`${c.name} added`,'g');
+}
+
+function addToFormula(slotIdx){
+  const sci=G.scientists[curSciIdx];
+  if(sci.selectedCompIdx===null){showToast('Select compound from library tab','a');return;}
+  selectCompForFormula(sci.selectedCompIdx);
+}
+
+// evalCure — shared scoring logic (used by host in online mode too)
+function evalCure(formula){
+  const pt=PT[G.pathogen.type];if(!pt)return{pct:0,won:false,breakdown:[]};
+  const correctTags=pt.weakTags;
+  const propTags=[...G.pathogen.activeProps].map(p=>STRAIN_PROPS[p]?.tag).filter(Boolean);
+  const allCorrectTags=[...new Set([...correctTags,...propTags])];
+  let score=0,maxScore=0;const breakdown=[];
+  formula.forEach(c=>{
+    const matchingTags=c.tags.filter(t=>allCorrectTags.includes(t));
+    const tagScore=matchingTags.length,powerScore=(c.basePower/100)*2,compScore=tagScore*3+powerScore;
+    score+=compScore;maxScore+=3*2+2;
+    breakdown.push({name:c.name,tags:c.tags,matchingTags,power:c.basePower});
+  });
+  if(G.pathogen.fortifyRound){score*=0.8;G.pathogen.fortifyRound=false;}
+  const pct=Math.min(100,Math.round((score/maxScore)*100));
+  return{pct,won:pct>=72,breakdown};
+}
+
+function submitCure(){
+  const sci=G.scientists[curSciIdx];
+  const extraSlot=G.pathogen.activeProps.has('neurotropic'),requiredSlots=extraSlot?6:5;
+  if(sci.formula.length<requiredSlots){showToast(`Need ${requiredSlots} compounds`,'a');return;}
+  sci.cureAttempts=(sci.cureAttempts||0)+1;
+
+  if(NET.mode==='online-guest'){
+    // Send to host for authoritative evaluation
+    guestSubmitCure(sci.formula);
+    showToast('Cure submitted — awaiting evaluation…','b');
+    return;
+  }
+
+  const result=evalCure(sci.formula);
+  const el=document.getElementById('cure-result-box');
+  if(result.won){endGame('scientists',curSciIdx,result.pct);return;}
+  const qual=result.pct>=55?'PROMISING':result.pct>=35?'PARTIAL MATCH':'INSUFFICIENT';
+  const qualCol=result.pct>=55?'var(--g)':result.pct>=35?'var(--a)':'var(--r)';
+  el.innerHTML=`<div class="disc-box ${result.pct>=55?'disc-development':'disc-minor'}">
+    <div class="disc-tier">EVALUATION — ${result.pct}% match</div>
+    <div class="disc-text" style="color:${qualCol}">${qual}</div>
+    <div class="tiny dim mt8">${result.breakdown.map(b=>`<div>${b.name}: ${b.matchingTags.length} tag match${b.power>=70?' ★':''}</div>`).join('')}</div>
+    <div class="tiny dim mt4">Need 72% to deploy. Refine and resubmit.</div>
+  </div>`;
+}
+
+function clearFormula(){G.scientists[curSciIdx].formula=[];renderFormulaSlots();}
+
+function renderRevenueLog(){
+  const sci=G.scientists[curSciIdx];
+  const el=document.getElementById('revenue-log');el.innerHTML='';
+  if(!sci.revenueLog||sci.revenueLog.length===0){el.innerHTML='<div class="tiny dim">No transactions yet.</div>';return;}
+  [...sci.revenueLog].reverse().forEach(r=>{
+    const pos=r.amount>=0;
+    const d=document.createElement('div');d.className='rev-row';
+    d.innerHTML=`<span class="tiny dim">R${r.round} — ${r.reason}</span>
+    <span class="tiny ${pos?'g':'r'} mono">${pos?'+':''}£${Math.abs(r.amount).toLocaleString()}</span>`;
+    el.appendChild(d);
+  });
+}
+
+// TRADE
+function openTradeModal(){
+  const sci=G.scientists[curSciIdx];
+  if(sci.fund<500){showToast('Need £500 to trade','r');return;}
+  const ts=document.getElementById('trade-target');
+  ts.innerHTML='<option value="">— Select recipient —</option>';
+  G.players.forEach((p,i)=>{if(i!==curSciIdx&&i!==G.pathogenIdx)ts.innerHTML+=`<option value="${i}">${p}</option>`;});
+  const ds=document.getElementById('trade-disc');
+  ds.innerHTML='<option value="">— Select discovery —</option>';
+  sci.discoveries.forEach((d,i)=>ds.innerHTML+=`<option value="${i}">R${d.round} [${d.tier}]: ${d.text.substring(0,40)}…</option>`);
+  document.getElementById('m-trade').style.display='flex';
+}
+function executeTrade(){
+  const sci=G.scientists[curSciIdx];
+  const tgt=parseInt(document.getElementById('trade-target').value);
+  const di=parseInt(document.getElementById('trade-disc').value);
+  if(isNaN(tgt)||isNaN(di)){showToast('Select both fields','a');return;}
+  sci.fund-=500;
+  sci.revenueLog.push({round:G.round,amount:-500,reason:`Intel trade to ${G.players[tgt]}`});
+  document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
+  const disc=sci.discoveries[di];
+  G.publicTrades.push({from:curSciIdx,to:tgt,text:disc.text,tier:disc.tier,round:G.round});
+  closeModal('m-trade');showToast('Intel transmitted','b');
+}
+
+function submitScientistTurn(){
+  const sci=G.scientists[curSciIdx];
+  sci.plantThisRound=false;
+  if(NET.mode!=='local'){
+    // Snapshot scientist state to send to host
+    const trades=G.publicTrades.filter(t=>t.from===curSciIdx&&t.round===G.round);
+    const newSciState={fund:sci.fund,compounds:sci.compounds,plants:sci.plants,formula:sci.formula,discoveries:sci.discoveries,revenueLog:sci.revenueLog,pendingOrders:sci.pendingOrders,cureAttempts:sci.cureAttempts};
+    if(NET.mode==='online-guest'){guestSubmitTurn({newSciState,trades});}
+    else{G.curTurnIdx++;advanceTurnOnline();}
+    return;
+  }
+  G.curTurnIdx++;
+  showToast('Turn submitted','b');
+  setTimeout(()=>{renderBoard();showScreen('s-board');},700);
+}
+
+// =====================================================
+//  ORDER CONFIRMATION
+// =====================================================
+let _pendingOrderCompound=null;
+function openConfirmOrder(c){
+  _pendingOrderCompound=c;
+  const sci=G.scientists[curSciIdx];
+  const canAfford=sci.fund>=c.cost;
+  const tier=COMPOUND_POOL.basic.find(x=>x.name===c.name)?'BASIC':COMPOUND_POOL.clinical.find(x=>x.name===c.name)?'CLINICAL':'TARGETED';
+  document.getElementById('confirm-order-details').innerHTML=`
+    <div class="disc-tier" style="color:var(--a)">${tier} COMPOUND</div>
+    <div class="disc-text" style="font-family:var(--fd);font-size:1rem;margin-bottom:6px">${c.name}</div>
+    <div class="tiny dim mb4">${c.desc}</div>
+    <div class="ci-tags mb6">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
+    <div class="row jbet">
+      <span class="tiny ${canAfford?'g':'r'}">Cost: £${c.cost.toLocaleString()}</span>
+      <span class="tiny a" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')} Arrival: ${c.eta}R</span>
+      <span class="tiny dim">Balance after: ${canAfford?'<span class="g">':'<span class="r">'}£${(sci.fund-c.cost).toLocaleString()}</span></span>
+    </div>
+  `;
+  closeModal('m-order');
+  document.getElementById('m-confirm-order').style.display='flex';
+}
+function confirmOrder(){
+  if(!_pendingOrderCompound)return;
+  closeModal('m-confirm-order');
+  orderCompound(_pendingOrderCompound);
+  _pendingOrderCompound=null;
+}
+
+// =====================================================
+//  PATENT SYSTEM
+// =====================================================
+// G.patents = array of {id, from, to, compound, compoundOwnerIdx, offer, status:'pending'|'accepted'|'denied'|'countered'|'terminated', counterOffer, round}
+if(!G.patents)G.patents=[];
+let _viewingPatentId=null;
+
+function openPatentRequestModal(){
+  const sel=document.getElementById('pat-target-sci');
+  sel.innerHTML='<option value="">— Select scientist —</option>';
+  G.players.forEach((p,i)=>{
+    if(i!==curSciIdx&&i!==G.pathogenIdx){
+      // Only show if they have synthesised compounds
+      const sci=G.scientists[i];
+      const synthComps=sci?(sci.compounds.filter(c=>c.name.startsWith('SYNTH-'))||[]):[];
+      if(synthComps.length>0)sel.innerHTML+=`<option value="${i}">${p}</option>`;
+    }
+  });
+  document.getElementById('pat-target-compound').innerHTML='<option value="">— Select scientist first —</option>';
+  sel.onchange=()=>populatePatentCompounds();
+  document.getElementById('pat-offer-amt').value='';
+  document.getElementById('m-patent-req').style.display='flex';
+}
+
+function populatePatentCompounds(){
+  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);
+  const cSel=document.getElementById('pat-target-compound');
+  cSel.innerHTML='<option value="">— Select compound —</option>';
+  if(isNaN(tgtIdx))return;
+  const sci=G.scientists[tgtIdx];if(!sci)return;
+  sci.compounds.filter(c=>c.name.startsWith('SYNTH-')&&c.available).forEach((c,i)=>{
+    const realIdx=sci.compounds.indexOf(c);
+    cSel.innerHTML+=`<option value="${realIdx}">${c.name} [${c.tags.join(',')}] — power:${c.basePower}</option>`;
+  });
+}
+
+function submitPatentRequest(){
+  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);
+  const compIdx=parseInt(document.getElementById('pat-target-compound').value);
+  const offer=parseInt(document.getElementById('pat-offer-amt').value);
+  if(isNaN(tgtIdx)||isNaN(compIdx)){showToast('Select scientist and compound','a');return;}
+  if(!offer||offer<100){showToast('Enter a valid offer (min £100)','a');return;}
+  const sci=G.scientists[curSciIdx];
+  if(sci.fund<offer){showToast('Insufficient funds for this offer','r');return;}
+  const tgtSci=G.scientists[tgtIdx];
+  const compound=tgtSci.compounds[compIdx];
+  if(!compound){showToast('Compound not found','r');return;}
+
+  const pat={
+    id:'pat'+Date.now(),from:curSciIdx,to:tgtIdx,
+    compound:{...compound},compoundOwnerIdx:tgtIdx,compIdx,
+    offer,status:'pending',counterOffer:null,
+    round:G.round,terminated:false
+  };
+  G.patents.push(pat);
+  closeModal('m-patent-req');
+  showToast(`Patent request sent to ${G.players[tgtIdx]}`,'p');
+}
+
+function renderPatentTab(){
+  if(!G.patents)G.patents=[];
+  const incoming=document.getElementById('patent-incoming');
+  const outgoing=document.getElementById('patent-outgoing');
+  incoming.innerHTML='<div class="label mb4">INCOMING REQUESTS</div>';
+  outgoing.innerHTML='<div class="label mb4">OUTGOING REQUESTS</div>';
+
+  // Incoming: deals targeted at me
+  const inc=G.patents.filter(p=>p.to===curSciIdx&&!p.terminated&&(p.status==='pending'||p.status==='countered'));
+  if(inc.length===0){incoming.innerHTML+='<div class="tiny dim">No incoming requests.</div>';}
+  inc.forEach(p=>{
+    const d=document.createElement('div');d.className='compound-item';
+    const fromName=G.players[p.from];
+    const statusCol=p.status==='countered'?'var(--a)':'var(--b)';
+    const statusLabel=p.status==='countered'?`COUNTER RECEIVED: £${p.counterOffer?.toLocaleString()}`:`OFFER: £${p.offer.toLocaleString()}`;
+    d.innerHTML=`<div class="ci-top">
+      <div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div>
+      <span style="font-family:var(--fd);font-size:.62rem;color:${statusCol}">${statusLabel}</span>
+    </div>
+    <div class="ci-desc">From: <span class="b">${fromName}</span> — Round ${p.round}</div>
+    <div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
+    <div class="row gap-sm mt8">
+      <button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept')">ACCEPT</button>
+      <button class="btn btn-a btn-sm" onclick="openCounterModal('${p.id}')">COUNTER</button>
+      <button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','deny')">DENY</button>
+    </div>`;
+    incoming.appendChild(d);
+  });
+
+  // Outgoing: deals I initiated
+  const out=G.patents.filter(p=>p.from===curSciIdx&&!p.terminated);
+  if(out.length===0){outgoing.innerHTML+='<div class="tiny dim">No active outgoing requests.</div>';}
+  out.forEach(p=>{
+    const d=document.createElement('div');d.className='compound-item';
+    const toName=G.players[p.to];
+    const statusMap={pending:'AWAITING RESPONSE',accepted:'ACCEPTED ✓',denied:'DENIED ✗',countered:`COUNTER: £${p.counterOffer?.toLocaleString()}`};
+    const statusColMap={pending:'var(--b)',accepted:'var(--g)',denied:'var(--r)',countered:'var(--a)'};
+    const st=statusMap[p.status]||p.status;
+    const stCol=statusColMap[p.status]||'var(--txd)';
+    d.innerHTML=`<div class="ci-top">
+      <div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div>
+      <span style="font-family:var(--fd);font-size:.62rem;color:${stCol}">${st}</span>
+    </div>
+    <div class="ci-desc">To: <span class="b">${toName}</span> — Your offer: £${p.offer.toLocaleString()}</div>
+    <div class="row gap-sm mt8 wrap">
+      ${p.status==='countered'?`<button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept-counter')">ACCEPT COUNTER (£${p.counterOffer?.toLocaleString()})</button>`:''}
+      ${p.status==='pending'||p.status==='countered'?`<button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','terminate')">TERMINATE</button>`:''}
+    </div>`;
+    outgoing.appendChild(d);
+  });
+}
+
+let _counterPatentId=null;
+function openCounterModal(patId){
+  _counterPatentId=patId;
+  const p=G.patents.find(x=>x.id===patId);if(!p)return;
+  document.getElementById('patent-resp-details').innerHTML=`
+    <div class="disc-box disc-development">
+      <div class="disc-tier">INCOMING FROM ${G.players[p.from].toUpperCase()}</div>
+      <div class="disc-text">${p.compound.name}</div>
+      <div class="tiny dim mt4">Their offer: <span class="g">£${p.offer.toLocaleString()}</span></div>
+      <div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
+    </div>`;
+  document.getElementById('patent-resp-counter').style.display='none';
+  document.getElementById('pat-counter-amt').value='';
+  document.getElementById('btn-pat-accept').onclick=()=>handlePatent(patId,'accept');
+  document.getElementById('btn-pat-deny').onclick=()=>handlePatent(patId,'deny');
+  document.getElementById('m-patent-resp').style.display='flex';
+}
+
+function handlePatent(patId,action){
+  const p=G.patents.find(x=>x.id===patId);if(!p)return;
+  const fromSci=G.scientists[p.from];
+  const toSci=G.scientists[p.to];
+
+  if(action==='accept'){
+    // Transfer compound and funds
+    const finalCost=p.offer;
+    if(fromSci.fund<finalCost){showToast('Insufficient funds to complete','r');return;}
+    fromSci.fund-=finalCost;
+    fromSci.revenueLog.push({round:G.round,amount:-finalCost,reason:`Patent purchase: ${p.compound.name}`});
+    toSci.fund+=finalCost;
+    toSci.revenueLog.push({round:G.round,amount:finalCost,reason:`Patent sale: ${p.compound.name}`});
+    const newComp={...p.compound,available:true,researched:false,name:p.compound.name+'-LIC'};
+    fromSci.compounds.push(newComp);
+    p.status='accepted';p.terminated=true;
+    closeModal('m-patent-resp');
+    showToast(`${p.compound.name} licensed! Funds transferred.`,'g');
+  } else if(action==='accept-counter'){
+    p.offer=p.counterOffer;
+    handlePatent(patId,'accept');return;
+  } else if(action==='deny'){
+    p.status='denied';p.terminated=true;
+    closeModal('m-patent-resp');
+    showToast('Patent request denied','r');
+  } else if(action==='counter'){
+    const amt=parseInt(document.getElementById('pat-counter-amt').value);
+    if(!amt||amt<100){showToast('Enter valid counter amount','a');return;}
+    p.counterOffer=amt;p.status='countered';
+    closeModal('m-patent-resp');
+    showToast(`Counter-offer of £${amt.toLocaleString()} sent`,'a');
+  } else if(action==='terminate'){
+    p.terminated=true;p.status='terminated';
+    showToast('Deal terminated','r');
+  }
+  renderPatentTab();
+}
+
+
+function endRound(){
+  G.round++;
+  if(G.round>G.maxRounds){endGame('pathogen');return;}
+  G.curTurnIdx=0;
+
+  // Bacteria antibiotic resistance kicks in at round 4
+  if(G.pathogen.type==='bacteria'&&G.round>=4){
+    if(!G.pathogen.activeProps.has('drug-resistant')){
+      G.pathogen.activeProps.add('drug-resistant');
+      G.knownSymptoms.push('ANTIBIOTIC RESISTANCE');
+      showToast('Pathogen developed antibiotic resistance!','r');
+    }
+  }
+
+  // Check if all scientists are broke
+  const broke=Object.values(G.scientists).every(s=>s.fund<=0);
+  if(broke){endGame('pathogen');return;}
+
+  // Reset per-round flags
+  Object.keys(G.scientists).forEach(idx=>{ G.scientists[idx].plantThisRound=false; });
+  G.pathogen.suppressRound=false;
+
+  renderBoard();
+}
+
+// ===================================================
+//  GAME END
+// ===================================================
+function endGame(winner,winnerIdx,pct){
+  G.gameOver=true;
+  if(NET.mode==='online-host'){broadcastToAll({type:'game-over',winner,winnerIdx,pct});}
+  const pt=PT[G.pathogen.type]||PT.virus;
+  const d=document.getElementById('win-details-el');
+  if(winner==='scientists'){
+    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-shield"/></svg>`;
+    document.getElementById('win-icon-el').style.color='var(--g)';
+    document.getElementById('win-title-el').innerHTML='<span style="color:var(--g)">CURE DEPLOYED</span>';
+    document.getElementById('win-sub-el').textContent='SCIENTISTS WIN — OUTBREAK CONTAINED';
+    d.innerHTML=`<div class="panel-hd">FINAL REPORT</div>
+    <div class="tiny" style="line-height:2.2">
+      <div>Scientist: <span class="g">${G.players[winnerIdx]}</span></div>
+      <div>Match: <span class="g">${pct}%</span></div>
+      <div>Pathogen: <span class="r">${pt.label}</span> — played by ${G.players[G.pathogenIdx]}</div>
+      <div>Rounds: <span class="a">${G.round}</span></div>
+      <div>Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div>
+      <div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div>
+    </div>`;
+  } else {
+    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-skull"/></svg>`;
+    document.getElementById('win-icon-el').style.color='var(--r)';
+    document.getElementById('win-title-el').innerHTML='<span style="color:var(--r)">EXTINCTION</span>';
+    document.getElementById('win-sub-el').textContent='PATHOGEN WINS — HUMANITY HAS FALLEN';
+    d.innerHTML=`<div class="panel-hd">CASUALTY REPORT</div>
+    <div class="tiny" style="line-height:2.2">
+      <div>Pathogen: <span class="r">${pt.label}</span></div>
+      <div>Played by: <span class="r">${G.players[G.pathogenIdx]}</span></div>
+      <div>Final Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div>
+      <div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div>
+      <div>Active Properties: <span class="a">${[...G.pathogen.activeProps].join(', ')}</span></div>
+    </div>`;
+  }
+  showScreen('s-win');
+}
+
+// ===================================================
+//  UTILS
+// ===================================================
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+function closeModal(id){document.getElementById(id).style.display='none';}
+function showToast(msg,type='g'){
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2600);
+}
+function fmt(n){
+  if(!n||isNaN(n))return'0';
+  if(n>=1e9)return(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+  return Math.round(n).toString();
+}
+
+// roundRect polyfill for older browsers
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();
+    this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.quadraticCurveTo(x+w,y,x+w,y+r);
+    this.lineTo(x+w,y+h-r);this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    this.lineTo(x+r,y+h);this.quadraticCurveTo(x,y+h,x,y+h-r);
+    this.lineTo(x,y+r);this.quadraticCurveTo(x,y,x+r,y);
+    this.closePath();return this;
+  };
+}
+
+// Animate critical-region pulse on heatmap
+let _hmAnimFrame=null;
+function startHeatmapAnim(){
+  if(_hmAnimFrame)cancelAnimationFrame(_hmAnimFrame);
+  function loop(){
+    const hasCrit=G.regions.some(r=>r.pop>0&&r.infected/r.pop>0.5);
+    if(hasCrit&&document.getElementById('s-board').classList.contains('active')){
+      drawWorldHeatmap();
+    }
+    _hmAnimFrame=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// Init
+G.players=['','',''];
+renderPlayerRows();
+startHeatmapAnim();
+</script>
+</body>
+</html>
