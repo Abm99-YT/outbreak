@@ -2320,496 +2320,509 @@ body::after {
   </div>
 </div>
 
-
 <script>
 // ===================================================
 //  ICON HELPER
 // ===================================================
 function ico(id,cls=''){return`<span class="icon${cls?' icon-'+cls:''}"style="display:inline-flex"><svg><use href="#ico-${id}"/></svg></span>`}
-
-// ===================================================
+ 
+// =====================================================
+//  SERVER URL
+// =====================================================
+const SERVER_URL = 'https://outbreak-62ux.onrender.com';
+ 
+// =====================================================
 //  NETWORK STATE
-// ===================================================
-const NET={
-  mode:'local',       // 'local'|'online-host'|'online-guest'
-  peer:null,
-  roomCode:null,
-  myPeerIdx:null,     // which player index am I?
-  hostConn:null,      // guest → host connection
-  guestConns:{},      // host: peerId → DataConnection
-  lobbyPlayers:[],    // [{name,peerId,playerIdx}]
+// =====================================================
+const NET = {
+  mode: 'local',      // 'local' | 'online-host' | 'online-guest'
+  transport: 'socketio',
+  roomCode: null,
+  myPeerIdx: null,
+  socket: null,
+  lobbyPlayers: [],
 };
-
-// ===================================================
+ 
+// =====================================================
 //  MODE NAVIGATION
-// ===================================================
-function goMode(){showScreen('s-mode');}
-function goOnlineEntry(){showScreen('s-online-entry');}
-function goSetup(){showScreen('s-setup');renderPlayerRows();}
-
-// ===================================================
-//  PEERJS — HOST
-// ===================================================
-function goHostLobby(){
-  showScreen('s-lobby');
-  document.getElementById('room-code-text').textContent='——————';
-  NET.mode='online-host';
-  NET.lobbyPlayers=[];
-  NET.guestConns={};
-  // Use short alphanumeric code as peer ID
-  const code=(Math.random().toString(36).substring(2,5)+Math.random().toString(36).substring(2,5)).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,6);
-  const peer=new Peer(code,{debug:0});
-  NET.peer=peer;
-  peer.on('open',id=>{
-    NET.roomCode=id.toUpperCase();
-    const hostName=document.getElementById('host-name-inp').value.trim()||'Host';
-    NET.myPeerIdx=0;
-    NET.lobbyPlayers=[{name:hostName,peerId:id,playerIdx:0,isHost:true}];
-    document.getElementById('room-code-text').textContent=NET.roomCode;
-    updateLobbyUI();
-  });
-  peer.on('connection',conn=>{
-    conn.on('open',()=>{
-      if(NET.lobbyPlayers.length>=6){conn.send({type:'room-full'});conn.close();return;}
-      NET.guestConns[conn.peer]=conn;
-      conn.on('data',d=>handleHostMsg(conn,d));
-      conn.on('close',()=>{
-        NET.lobbyPlayers=NET.lobbyPlayers.filter(p=>p.peerId!==conn.peer);
-        delete NET.guestConns[conn.peer];
-        // Reassign indices
-        NET.lobbyPlayers.forEach((p,i)=>p.playerIdx=i);
-        broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
-        updateLobbyUI();
-      });
-    });
-  });
-  peer.on('error',err=>{
-    if(err.type==='unavailable-id'){peer.destroy();goHostLobby();}
-    else showToast('Connection error: '+err.type,'r');
-  });
+// =====================================================
+function goMode() { showScreen('s-mode'); }
+function goSetup() { showScreen('s-setup'); renderPlayerRows(); }
+function goOnlineEntry() { showScreen('s-online-entry'); }
+ 
+// =====================================================
+//  BROADCAST HELPERS
+// =====================================================
+ 
+/** Send an event to ALL players (including self) via server. Host-only. */
+function broadcastToAll(event, data) {
+  if (NET.mode !== 'online-host' || !NET.socket) return;
+  // Broadcast to guests
+  NET.socket.emit(event, data);
+  // Also handle locally on host (server excludes sender for public-update; for game:start etc. host listens too)
 }
-
-function handleHostMsg(conn,data){
-  if(data.type==='join-request'){
-    if(NET.lobbyPlayers.length>=6){conn.send({type:'room-full'});return;}
-    const idx=NET.lobbyPlayers.length;
-    const player={name:data.name,peerId:conn.peer,playerIdx:idx,isHost:false};
-    NET.lobbyPlayers.push(player);
-    conn.send({type:'join-ok',yourIdx:idx,players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
-    broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
-    updateLobbyUI();
-  } else if(data.type==='turn-result'){
-    applyGuestTurnResult(data);
-  } else if(data.type==='cure-attempt'){
-    const result=evalCure(data.formula);
-    const target=NET.guestConns[conn.peer];
-    if(target)target.send({type:'cure-result',pct:result.pct,won:result.won,breakdown:result.breakdown});
-    if(result.won)setTimeout(()=>endGame('scientists',data.playerIdx,result.pct),300);
-  } else if(data.type==='pathogen-type-set'){
-    G.pathogen.type=data.pathogenType;
-    G.pathogen.activeProps=new Set(data.activeProps);
-    G.pathogen.mutations=data.mutations||[];
-    broadcastPublicUpdate();
-  }
+ 
+/** Broadcast public game state snapshot to all guests. Host-only. */
+function broadcastPublicUpdate() {
+  if (NET.mode !== 'online-host' || !NET.socket) return;
+  NET.socket.emit('game:public-update', { state: getPublicState() });
 }
-
-function applyGuestTurnResult(data){
-  const pidx=data.playerIdx;
-  if(pidx===G.pathogenIdx){
-    // Apply pathogen turn
-    data.selectedActions.forEach(aid=>{
-      const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
-      if(act.suppress)G.pathogen.suppressRound=true;
-      if(act.fortify)G.pathogen.fortifyRound=true;
-    });
-    applyPathogenActions(data.selectedActions);
-    if(data.mutPath){
-      G.pathogen.mutEnergy=0;
-      applyMutation(data.mutPath);
-    }
-    if(G.pathogen.type===null&&data.pathogenType){
-      G.pathogen.type=data.pathogenType;
-      const pt=PT[data.pathogenType];
-      G.pathogen.activeProps=new Set(pt.startProps);
-      G.pathogen.mutations=[{id:'origin',label:pt.label+' ORIGIN',props:pt.startProps,round:0,parent:null}];
-    }
-  } else {
-    // Apply scientist turn
-    const sci=G.scientists[pidx];
-    if(!sci)return;
-    Object.assign(sci,data.newSciState);
-    // Apply trades
-    (data.trades||[]).forEach(t=>G.publicTrades.push(t));
-  }
-  if(G.world.pop<=0){endGame('pathogen');return;}
-  advanceTurnOnline();
-}
-
-function applyPathogenActions(actions){
-  let totalSpreadMult=1.0,totalDeathMult=1.0,totalMutGain=0,targetRegionIdx=null;
-  actions.forEach(aid=>{
-    const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
-    totalMutGain+=act.mutGain;totalSpreadMult*=act.spreadMult;totalDeathMult*=act.deathMult;
-    if(act.targetRegion)targetRegionIdx=Math.floor(Math.random()*G.regions.length);
-  });
-  let propSpreadBonus=1.0;
-  G.pathogen.activeProps.forEach(p=>{const sp=STRAIN_PROPS[p];if(sp)propSpreadBonus*=sp.spreadMult;});
-  totalSpreadMult*=propSpreadBonus;
-  const pt=PT[G.pathogen.type]||{mutBonus:0};
-  totalMutGain*=1+pt.mutBonus;
-  G.pathogen.mutEnergy=Math.min(100,G.pathogen.mutEnergy+totalMutGain);
-  const waterborne=G.pathogen.activeProps.has('waterborne');
-  G.regions.forEach((r,ri)=>{
-    let mult=totalSpreadMult;
-    if(targetRegionIdx!==null)mult=ri===targetRegionIdx?totalSpreadMult*2.5:0.2;
-    if(waterborne)mult=Math.max(mult,totalSpreadMult*0.8);
-    const baseRate=0.008+G.round*0.003;
-    const newInf=Math.min(r.pop,r.infected+r.pop*baseRate*mult*(0.8+Math.random()*0.4));
-    r.infected=Math.round(newInf*10)/10;
-  });
-  const totalInf=G.regions.reduce((s,r)=>s+r.infected,0);
-  const deathRate=(0.01+G.round*0.005)*totalDeathMult*(G.pathogen.activeProps.has('cytokine-storm')?1.8:1);
-  G.world.infected=totalInf;
-  G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+totalInf*deathRate*0.05);
-  G.world.pop=Math.max(0,7800-G.world.dead);
-}
-
-function applyMutation(mutPathId){
-  const path=MUT_PATHS.find(p=>p.id===mutPathId);if(!path)return;
-  let resultProps=[];
-  if(path.props.length>0){
-    const roll=Math.random();
-    const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);
-    const newProp=path.props[idx];
-    if(newProp&&!G.pathogen.activeProps.has(newProp)){G.pathogen.activeProps.add(newProp);resultProps.push(newProp);}
-  }
-  if(path.effect==='stealth')G.pathogen.stealthRounds=2;
-  const parentId=G.pathogen.mutations[G.pathogen.mutations.length-1]?.id||'origin';
-  G.pathogen.mutations.push({id:'mut'+G.round+mutPathId,label:path.label.substring(0,18),props:resultProps,round:G.round,parent:parentId});
-}
-
-function advanceTurnOnline(){
-  G.curTurnIdx++;
-  const allDone=G.curTurnIdx>=G.turnQueue.length;
-  broadcastPublicUpdate();
-  if(!allDone){
-    const nextPidx=G.turnQueue[G.curTurnIdx];
-    sendYourTurn(nextPidx);
-  }
-  // Update host board
-  renderBoard();
-  updateOTS();
-}
-
-function sendYourTurn(pidx){
-  if(pidx===NET.myPeerIdx){
-    // It's the host's turn — handled locally
-    return;
-  }
-  // Find the guest connection for this player
-  const lobbyP=NET.lobbyPlayers.find(p=>p.playerIdx===pidx);
-  if(!lobbyP)return;
-  const conn=NET.guestConns[lobbyP.peerId];
-  if(!conn)return;
-  const isPath=pidx===G.pathogenIdx;
-  let privateState;
-  if(isPath){
-    privateState={
-      mutEnergy:G.pathogen.mutEnergy,
-      activeProps:[...G.pathogen.activeProps],
-      mutations:G.pathogen.mutations,
-      stealthRounds:G.pathogen.stealthRounds,
-      selectedActions:[],chosenMutPath:null
-    };
-  } else {
-    const sci=G.scientists[pidx]||{};
-    privateState={
-      fund:sci.fund,compounds:sci.compounds,plants:sci.plants,
-      discoveries:sci.discoveries,pendingOrders:sci.pendingOrders,
-      revenueLog:sci.revenueLog,formula:sci.formula,
-      freeResearchDone:!!G.freeResearchUsed[`${G.round}-${pidx}`],
-      incomingTrades:G.publicTrades.filter(t=>t.to===pidx&&t.round===G.round)
-    };
-  }
-  try{conn.send({type:'your-turn',privateState,isPathogen:isPath,round:G.round});}catch(e){}
-}
-
-function broadcastToAll(msg){
-  Object.values(NET.guestConns).forEach(conn=>{try{conn.send(msg);}catch(e){}});
-}
-
-function broadcastPublicUpdate(){
-  if(NET.mode!=='online-host')return;
-  const pub=getPublicState();
-  broadcastToAll({type:'public-update',state:pub});
-}
-
-function getPublicState(){
-  return{
-    round:G.round,maxRounds:G.maxRounds,
-    world:{...G.world},
-    regions:G.regions.map(r=>({...r})),
-    knownSymptoms:[...G.knownSymptoms],
-    curTurnIdx:G.curTurnIdx,
-    turnQueue:[...G.turnQueue],
-    pathogenIdx:G.pathogenIdx,
-    players:[...G.players],
-    gameOver:G.gameOver
+ 
+function getPublicState() {
+  return {
+    round: G.round, maxRounds: G.maxRounds,
+    world: { ...G.world },
+    regions: G.regions.map(r => ({ ...r })),
+    knownSymptoms: [...G.knownSymptoms],
+    curTurnIdx: G.curTurnIdx, turnQueue: [...G.turnQueue],
+    pathogenIdx: G.pathogenIdx, players: [...G.players], gameOver: G.gameOver
   };
 }
-
-function updateLobbyUI(){
-  const count=NET.lobbyPlayers.length;
-  document.getElementById('lobby-count').textContent=`${count} / 6`;
-  const list=document.getElementById('lobby-player-list');list.innerHTML='';
-  NET.lobbyPlayers.forEach((p,i)=>{
-    const d=document.createElement('div');
-    d.className='player-slot connected';
-    d.innerHTML=`<div class="pslot-dot"></div><span>${p.name}</span>${i===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}`;
-    list.appendChild(d);
+ 
+// =====================================================
+//  HOST — Socket.IO
+// =====================================================
+function sioHostLobby() {
+  const hostName = document.getElementById('host-name-inp').value.trim() || 'Host';
+  const socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
+  NET.socket = socket;
+ 
+  socket.on('connect', () => socket.emit('room:create', { hostName }));
+ 
+  socket.on('room:created', ({ code, yourIdx }) => {
+    NET.roomCode = code; NET.myPeerIdx = yourIdx;
+    NET.lobbyPlayers = [{ name: hostName, playerIdx: 0, isHost: true }];
+    document.getElementById('room-code-text').textContent = code;
+    updateLobbyUI();
   });
-  for(let i=count;i<6;i++){
-    const d=document.createElement('div');d.className='player-slot waiting';
-    d.innerHTML=`<div class="pslot-dot"></div><span>Waiting for player…</span>`;
-    list.appendChild(d);
+ 
+  socket.on('lobby:update', ({ players }) => { NET.lobbyPlayers = players; updateLobbyUI(); });
+ 
+  // Host receives its OWN role-reveal from server (server sends to everyone incl. host)
+  socket.on('game:role-reveal', ({ pathogenIdx, players, turnQueue, yourIdx }) => {
+    G.pathogenIdx = pathogenIdx; G.players = players; G.turnQueue = turnQueue;
+    G.curTurnIdx = 0; NET.myPeerIdx = yourIdx; // yourIdx = 0 for host
+    _initMyPrivateState(yourIdx);
+    renderRoleCard(yourIdx);
+    showScreen('s-role');
+  });
+ 
+  // Turn delivery — host may also receive its own turn
+  socket.on('game:your-turn', (data) => receiveYourTurn(data));
+ 
+  // Incoming guest turn result
+  socket.on('game:turn-result', (data) => applyGuestTurnResult(data));
+ 
+  // Cure from guest
+  socket.on('game:cure-attempt', ({ playerIdx, formula }) => {
+    const result = evalCure(formula);
+    socket.emit('game:cure-result', { toPlayerIdx: playerIdx, ...result });
+    if (result.won) setTimeout(() => endGame('scientists', playerIdx, result.pct), 300);
+  });
+ 
+  // Pathogen type from guest pathogen
+  socket.on('game:pathogen-type', ({ pathogenType, activeProps, mutations }) => {
+    G.pathogen.type = pathogenType;
+    G.pathogen.activeProps = new Set(activeProps);
+    G.pathogen.mutations = mutations || [];
+    broadcastPublicUpdate();
+  });
+ 
+  socket.on('room:error', ({ message }) => showToast(message, 'r'));
+  socket.on('room:promoted-to-host', ({ message }) => {
+    NET.mode = 'online-host'; NET.myPeerIdx = 0;
+    showToast(message, 'a'); renderBoard(); updateOTS();
+  });
+  socket.on('game:player-disconnected', ({ name }) => showToast(`${name} disconnected`, 'a'));
+  socket.on('game:over', (data) => endGame(data.winner, data.winnerIdx, data.pct));
+  socket.on('game:toast', ({ message, type }) => showToast(message, type));
+  socket.on('disconnect', () => { if (!G.gameOver) showToast('Disconnected from server', 'r'); });
+}
+ 
+// =====================================================
+//  GUEST — Socket.IO
+// =====================================================
+function sioJoinRoom(name, code) {
+  const socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
+  NET.socket = socket;
+ 
+  socket.on('connect', () => socket.emit('room:join', { code, name }));
+ 
+  socket.on('room:joined', ({ code: c, yourIdx, players }) => {
+    NET.roomCode = c; NET.myPeerIdx = yourIdx; NET.lobbyPlayers = players;
+    updateWaitingPlayerList(players);
+    showScreen('s-waiting');
+    document.getElementById('waiting-title').textContent = 'CONNECTED';
+    document.getElementById('waiting-sub').textContent = 'WAITING FOR HOST TO START';
+  });
+ 
+  socket.on('lobby:update', ({ players }) => { NET.lobbyPlayers = players; updateWaitingPlayerList(players); });
+ 
+  socket.on('game:role-reveal', ({ pathogenIdx, players, turnQueue, yourIdx }) => {
+    G.pathogenIdx = pathogenIdx; G.players = players; G.turnQueue = turnQueue;
+    G.curTurnIdx = 0; NET.myPeerIdx = yourIdx;
+    _initMyPrivateState(yourIdx);
+    renderRoleCard(yourIdx);
+    showScreen('s-role');
+  });
+ 
+  socket.on('game:public-update', ({ state }) => { syncPublicState(state); renderBoard(); updateOTS(); });
+  socket.on('game:your-turn',   (data)  => receiveYourTurn(data));
+  socket.on('game:cure-result', (data)  => showCureResultOnDash(data));
+  socket.on('game:over',        (data)  => endGame(data.winner, data.winnerIdx, data.pct));
+  socket.on('game:toast',       ({ message, type }) => showToast(message, type));
+  socket.on('room:error',       ({ message }) => { showToast(message, 'r'); showScreen('s-online-entry'); });
+  socket.on('disconnect',       () => { if (!G.gameOver) showToast('Disconnected from server', 'r'); });
+}
+ 
+/** Initialise local private state for this player after role-reveal */
+function _initMyPrivateState(pidx) {
+  if (pidx !== G.pathogenIdx) {
+    if (!G.scientists[pidx]) {
+      G.scientists[pidx] = {
+        fund:10000, compounds:[], plants:[], formula:[], discoveries:[],
+        revenueLog:[], freeResearchDone:false, selectedCompIdx:null,
+        cureAttempts:0, plantThisRound:false, pendingOrders:[], pendingSynths:[]
+      };
+      addStartingCompounds(pidx);
+    }
   }
-  const can=count>=3;
-  document.getElementById('btn-start-online').disabled=!can;
-  document.getElementById('lobby-hint').textContent=can?`${count} players connected — host can start`:`Need at least 3 players to start (${count}/3)`;
 }
-
-function copyRoomCode(){
-  if(!NET.roomCode)return;
-  navigator.clipboard.writeText(NET.roomCode).then(()=>showToast('Room code copied!','g')).catch(()=>showToast(NET.roomCode,'b'));
+ 
+// =====================================================
+//  ENTRY POINTS
+// =====================================================
+function goHostLobby() {
+  showScreen('s-lobby');
+  NET.mode = 'online-host';
+  NET.lobbyPlayers = [];
+  document.getElementById('room-code-text').textContent = '——————';
+  sioHostLobby();
 }
-
-function cancelLobby(){
-  if(NET.peer){try{NET.peer.destroy();}catch(e){}NET.peer=null;}
-  NET.lobbyPlayers=[];NET.guestConns={};NET.mode='local';
+ 
+function joinRoom() {
+  const name = document.getElementById('join-name-inp').value.trim();
+  const code = document.getElementById('join-code-inp').value.trim().toUpperCase();
+  if (!name) { showToast('Enter your name', 'a'); return; }
+  if (code.length < 4) { showToast('Enter a valid room code', 'a'); return; }
+  NET.mode = 'online-guest';
+  sioJoinRoom(name, code);
+}
+ 
+/**
+ * Host clicks "LAUNCH GAME".
+ * Sets up G.players, runs game logic, then emits 'game:start' to server.
+ * Server relays 'game:role-reveal' to ALL players (including host).
+ */
+function hostStartGame() {
+  if (NET.lobbyPlayers.length < 3) { showToast('Need at least 3 players', 'a'); return; }
+  G.players = NET.lobbyPlayers.map(p => p.name);
+  startGameLogic();
+}
+ 
+function cancelLobby() {
+  if (NET.socket) { try { NET.socket.disconnect(); } catch(e){} NET.socket = null; }
+  NET.lobbyPlayers = []; NET.mode = 'local';
   showScreen('s-mode');
 }
-
-function updateHostName(){
-  const name=document.getElementById('host-name-inp').value.trim()||'Host';
-  if(NET.lobbyPlayers.length>0){
-    NET.lobbyPlayers[0].name=name;
-    broadcastToAll({type:'lobby-update',players:NET.lobbyPlayers.map(p=>({name:p.name,playerIdx:p.playerIdx}))});
+ 
+function updateHostName() {
+  const name = document.getElementById('host-name-inp').value.trim() || 'Host';
+  if (NET.lobbyPlayers.length > 0) {
+    NET.lobbyPlayers[0].name = name;
+    if (NET.socket) NET.socket.emit('room:update-name', { name });
     updateLobbyUI();
   }
 }
-
-function hostStartGame(){
-  if(NET.lobbyPlayers.length<3){showToast('Need at least 3 players','a');return;}
-  G.players=NET.lobbyPlayers.map(p=>p.name);
-  broadcastToAll({type:'game-start',players:G.players,playerCount:G.players.length});
-  startGameLogic();
+ 
+function copyRoomCode() {
+  if (!NET.roomCode) return;
+  navigator.clipboard.writeText(NET.roomCode)
+    .then(() => showToast('Room code copied!', 'g'))
+    .catch(() => showToast(NET.roomCode, 'b'));
 }
-
-// ===================================================
-//  PEERJS — GUEST
-// ===================================================
-function joinRoom(){
-  const name=document.getElementById('join-name-inp').value.trim();
-  const code=document.getElementById('join-code-inp').value.trim().toUpperCase();
-  if(!name){showToast('Enter your name','a');return;}
-  if(code.length<4){showToast('Enter a valid room code','a');return;}
-  NET.mode='online-guest';
-  const peer=new Peer({debug:0});
-  NET.peer=peer;
-  showToast('Connecting…','b');
-  peer.on('open',()=>{
-    const conn=peer.connect(code,{reliable:true});
-    NET.hostConn=conn;
-    conn.on('open',()=>conn.send({type:'join-request',name}));
-    conn.on('data',d=>handleGuestMsg(d));
-    conn.on('close',()=>{if(!G.gameOver)showToast('Disconnected from host','r');});
-    conn.on('error',()=>showToast('Could not connect to room','r'));
-  });
-  peer.on('error',err=>showToast('Connection failed: '+err.type,'r'));
-}
-
-function handleGuestMsg(data){
-  switch(data.type){
-    case 'room-full':
-      showToast('Room is full','r');
-      NET.peer.destroy();showScreen('s-online-entry');break;
-    case 'join-ok':
-      NET.myPeerIdx=data.yourIdx;
-      updateWaitingPlayerList(data.players);
-      showScreen('s-waiting');
-      document.getElementById('waiting-title').textContent='CONNECTED';
-      document.getElementById('waiting-sub').textContent='WAITING FOR HOST TO START';
-      break;
-    case 'lobby-update':
-      updateWaitingPlayerList(data.players);break;
-    case 'game-start':
-      G.players=data.players;break;
-    case 'game-start-roles':
-      handleGuestGameStartRoles(data);break;
-    case 'public-update':
-      syncPublicState(data.state);
-      renderBoard();
-      updateOTS();
-      break;
-    case 'your-turn':
-      receiveYourTurn(data);break;
-    case 'cure-result':
-      showCureResultOnDash(data);break;
-    case 'game-over':
-      endGame(data.winner,data.winnerIdx,data.pct);break;
-  }
-}
-
-function updateWaitingPlayerList(players){
-  const el=document.getElementById('waiting-player-list');if(!el)return;
-  el.innerHTML=players.map(p=>`<div class="player-slot ${p.playerIdx===NET.myPeerIdx?'self connected':'connected'}">
-    <div class="pslot-dot"></div><span>${p.name}</span>
-    ${p.playerIdx===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}
-    ${p.playerIdx===NET.myPeerIdx?`<span class="label ml-auto b">YOU</span>`:''}
-  </div>`).join('');
-}
-
-function syncPublicState(state){
-  G.round=state.round;G.maxRounds=state.maxRounds;
-  Object.assign(G.world,state.world);
-  state.regions.forEach((r,i)=>{if(G.regions[i])Object.assign(G.regions[i],r);});
-  G.knownSymptoms=state.knownSymptoms;
-  G.curTurnIdx=state.curTurnIdx;
-  G.turnQueue=state.turnQueue;
-  G.pathogenIdx=state.pathogenIdx;
-  G.players=state.players;
-  G.gameOver=state.gameOver;
-}
-
-function receiveYourTurn(data){
-  // Update our private state from host
-  if(data.isPathogen){
-    G.pathogen.mutEnergy=data.privateState.mutEnergy;
-    G.pathogen.activeProps=new Set(data.privateState.activeProps);
-    G.pathogen.mutations=data.privateState.mutations||[];
-    G.pathogen.stealthRounds=data.privateState.stealthRounds||0;
+ 
+// =====================================================
+//  SEND TURN TO A PLAYER (host → server → player)
+// =====================================================
+function sendYourTurn(pidx) {
+  if (!NET.socket) return;
+ 
+  const isPath = pidx === G.pathogenIdx;
+  const privateState = isPath
+    ? {
+        mutEnergy: G.pathogen.mutEnergy,
+        activeProps: [...G.pathogen.activeProps],
+        mutations: G.pathogen.mutations,
+        stealthRounds: G.pathogen.stealthRounds
+      }
+    : (() => {
+        const sci = G.scientists[pidx] || {};
+        return {
+          fund: sci.fund, compounds: sci.compounds, plants: sci.plants,
+          discoveries: sci.discoveries, pendingOrders: sci.pendingOrders,
+          revenueLog: sci.revenueLog, formula: sci.formula,
+          freeResearchDone: !!G.freeResearchUsed[`${G.round}-${pidx}`]
+        };
+      })();
+ 
+  if (pidx === NET.myPeerIdx) {
+    // Host's own turn — deliver locally without going through server
+    receiveYourTurn({ privateState, isPathogen: isPath, round: G.round, toPlayerIdx: pidx });
   } else {
-    const sci=G.scientists[NET.myPeerIdx]=G.scientists[NET.myPeerIdx]||{};
-    Object.assign(sci,data.privateState);
-    sci.freeResearchDone=data.privateState.freeResearchDone||false;
-    // Process orders that arrived
-    processOrders(NET.myPeerIdx);
-    givePlant(NET.myPeerIdx);
-    grantFunding(NET.myPeerIdx);
-    genDiscovery(NET.myPeerIdx);
+    // Route through server to the correct guest
+    NET.socket.emit('game:send-turn', { toPlayerIdx: pidx, privateState, isPathogen: isPath, round: G.round });
   }
-  // Show board with YOUR TURN highlighted
-  renderBoard();
-  showScreen('s-board');
-  updateOTS();
 }
-
-function guestSubmitTurn(turnData){
-  if(NET.mode==='online-guest'&&NET.hostConn){
-    NET.hostConn.send({type:'turn-result',playerIdx:NET.myPeerIdx,...turnData});
-  }
-  // Go back to waiting
+ 
+// =====================================================
+//  GUEST SUBMIT
+// =====================================================
+function guestSubmitTurn(turnData) {
+  if (NET.socket) NET.socket.emit('game:turn-result', { playerIdx: NET.myPeerIdx, ...turnData });
   showScreen('s-waiting');
-  document.getElementById('waiting-title').textContent='TURN SUBMITTED';
-  document.getElementById('waiting-sub').textContent='WAITING FOR OTHER PLAYERS';
+  document.getElementById('waiting-title').textContent = 'TURN SUBMITTED';
+  document.getElementById('waiting-sub').textContent = 'WAITING FOR OTHER PLAYERS';
 }
-
-function guestSubmitCure(formula){
-  if(NET.mode==='online-guest'&&NET.hostConn){
-    NET.hostConn.send({type:'cure-attempt',playerIdx:NET.myPeerIdx,formula});
-  }
+ 
+function guestSubmitCure(formula) {
+  if (NET.socket) NET.socket.emit('game:cure-attempt', { playerIdx: NET.myPeerIdx, formula });
 }
-
-let _cureResultCallback=null;
-function showCureResultOnDash(data){
-  const el=document.getElementById('cure-result-box');if(!el)return;
-  const qual=data.pct>=55?'PROMISING':data.pct>=35?'PARTIAL MATCH':'INSUFFICIENT';
-  const qualCol=data.pct>=55?'var(--g)':data.pct>=35?'var(--a)':'var(--r)';
-  el.innerHTML=`<div class="disc-box ${data.pct>=55?'disc-development':'disc-minor'}">
+ 
+function showCureResultOnDash(data) {
+  const el = document.getElementById('cure-result-box'); if (!el) return;
+  const qual = data.pct >= 55 ? 'PROMISING' : data.pct >= 35 ? 'PARTIAL MATCH' : 'INSUFFICIENT';
+  const qualCol = data.pct >= 55 ? 'var(--g)' : data.pct >= 35 ? 'var(--a)' : 'var(--r)';
+  el.innerHTML = `<div class="disc-box ${data.pct>=55?'disc-development':'disc-minor'}">
     <div class="disc-tier">EVALUATION — ${data.pct}% match</div>
     <div class="disc-text" style="color:${qualCol}">${qual}</div>
     <div class="tiny dim mt8">${(data.breakdown||[]).map(b=>`<div>${b.name}: ${b.matchingTags?.length||0} tag match${b.power>=70?' ★':''}</div>`).join('')}</div>
     <div class="tiny dim mt4">Need 72% to deploy. Refine and resubmit.</div>
   </div>`;
-  if(data.won){endGame('scientists',NET.myPeerIdx,data.pct);}
+  if (data.won) endGame('scientists', NET.myPeerIdx, data.pct);
 }
-
-// ===================================================
-//  ONLINE TURN STATUS (OTS)
-// ===================================================
-function updateOTS(){
-  if(NET.mode==='local'){
-    document.getElementById('ots-wrap').style.display='none';return;
+ 
+// =====================================================
+//  APPLY TURN (host-side, after receiving from a guest)
+// =====================================================
+function applyGuestTurnResult(data) {
+  const pidx = data.playerIdx;
+ 
+  if (pidx === G.pathogenIdx) {
+    (data.selectedActions || []).forEach(aid => {
+      const act = PATHOGEN_ACTIONS.find(a => a.id === aid); if (!act) return;
+      if (act.suppress) G.pathogen.suppressRound = true;
+      if (act.fortify)  G.pathogen.fortifyRound  = true;
+    });
+    applyPathogenActions(data.selectedActions || []);
+    if (data.mutPath) { G.pathogen.mutEnergy = 0; applyMutation(data.mutPath); }
+    if (!G.pathogen.type && data.pathogenType) {
+      G.pathogen.type = data.pathogenType;
+      const pt = PT[data.pathogenType];
+      G.pathogen.activeProps = new Set(pt.startProps);
+      G.pathogen.mutations = [{ id:'origin', label:pt.label+' ORIGIN', props:pt.startProps, round:0, parent:null }];
+    }
+  } else {
+    const sci = G.scientists[pidx]; if (!sci) return;
+    Object.assign(sci, data.newSciState);
+    (data.trades || []).forEach(t => G.publicTrades.push(t));
   }
-  document.getElementById('ots-wrap').style.display='block';
-  const panel=document.getElementById('ots-panel');
-  if(G.gameOver){panel.innerHTML='';return;}
-
-  if(G.curTurnIdx>=G.turnQueue.length){
-    // Round complete
-    if(NET.myPeerIdx===0){
-      panel.className='ots-panel ots-round-end-host';
-      panel.innerHTML=`<div class="col gap-sm">
+ 
+  if (G.world.pop <= 0) { endGame('pathogen'); return; }
+ 
+  advanceTurnOnline();
+}
+ 
+/**
+ * Advance the turn pointer after any player (guest or host) finishes.
+ * Host calls this both after applyGuestTurnResult AND after host submits their own turn.
+ */
+function advanceTurnOnline() {
+  G.curTurnIdx++;
+  broadcastPublicUpdate();
+ 
+  if (G.curTurnIdx < G.turnQueue.length) {
+    const nextPidx = G.turnQueue[G.curTurnIdx];
+    sendYourTurn(nextPidx);   // handles both own-turn and guest routing
+  }
+  // If curTurnIdx >= turnQueue.length, round is over — OTS panel shows "Start Next Round"
+ 
+  renderBoard();
+  updateOTS();
+}
+ 
+function applyPathogenActions(actions) {
+  let tsm=1.0, tdm=1.0, tmg=0, tri=null;
+  actions.forEach(aid => {
+    const act=PATHOGEN_ACTIONS.find(a=>a.id===aid); if(!act)return;
+    tmg+=act.mutGain; tsm*=act.spreadMult; tdm*=act.deathMult;
+    if(act.targetRegion)tri=Math.floor(Math.random()*G.regions.length);
+  });
+  let psb=1.0;
+  G.pathogen.activeProps.forEach(p=>{const sp=STRAIN_PROPS[p];if(sp)psb*=sp.spreadMult;});
+  tsm*=psb;
+  const pt=PT[G.pathogen.type]||{mutBonus:0};
+  tmg*=1+pt.mutBonus;
+  G.pathogen.mutEnergy=Math.min(100,G.pathogen.mutEnergy+tmg);
+  const wb=G.pathogen.activeProps.has('waterborne');
+  G.regions.forEach((r,ri)=>{
+    let m=tsm;
+    if(tri!==null)m=ri===tri?tsm*2.5:0.2;
+    if(wb)m=Math.max(m,tsm*0.8);
+    const br=0.008+G.round*0.003;
+    r.infected=Math.round(Math.min(r.pop,r.infected+r.pop*br*m*(0.8+Math.random()*0.4))*10)/10;
+  });
+  const ti=G.regions.reduce((s,r)=>s+r.infected,0);
+  const dr=(0.01+G.round*0.005)*tdm*(G.pathogen.activeProps.has('cytokine-storm')?1.8:1);
+  G.world.infected=ti;
+  G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+ti*dr*0.05);
+  G.world.pop=Math.max(0,7800-G.world.dead);
+}
+ 
+function applyMutation(mutPathId) {
+  const path=MUT_PATHS.find(p=>p.id===mutPathId); if(!path)return;
+  let rp=[];
+  if(path.props.length>0){
+    const roll=Math.random();
+    const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);
+    const np=path.props[idx];
+    if(np&&!G.pathogen.activeProps.has(np)){G.pathogen.activeProps.add(np);rp.push(np);}
+  }
+  if(path.effect==='stealth')G.pathogen.stealthRounds=2;
+  const pid=G.pathogen.mutations[G.pathogen.mutations.length-1]?.id||'origin';
+  G.pathogen.mutations.push({id:'mut'+G.round+mutPathId,label:path.label.substring(0,18),props:rp,round:G.round,parent:pid});
+}
+ 
+// =====================================================
+//  SYNC (guest-side)
+// =====================================================
+function syncPublicState(state) {
+  G.round=state.round; G.maxRounds=state.maxRounds;
+  Object.assign(G.world,state.world);
+  state.regions.forEach((r,i)=>{if(G.regions[i])Object.assign(G.regions[i],r);});
+  G.knownSymptoms=state.knownSymptoms; G.curTurnIdx=state.curTurnIdx;
+  G.turnQueue=state.turnQueue; G.pathogenIdx=state.pathogenIdx;
+  G.players=state.players; G.gameOver=state.gameOver;
+}
+ 
+function receiveYourTurn(data) {
+  if (data.isPathogen) {
+    G.pathogen.mutEnergy     = data.privateState.mutEnergy;
+    G.pathogen.activeProps   = new Set(data.privateState.activeProps);
+    G.pathogen.mutations     = data.privateState.mutations || [];
+    G.pathogen.stealthRounds = data.privateState.stealthRounds || 0;
+  } else {
+    const sci = G.scientists[NET.myPeerIdx] = G.scientists[NET.myPeerIdx] || {};
+    Object.assign(sci, data.privateState);
+    sci.freeResearchDone = data.privateState.freeResearchDone || false;
+    processOrders(NET.myPeerIdx);
+    givePlant(NET.myPeerIdx);
+    grantFunding(NET.myPeerIdx);
+    genDiscovery(NET.myPeerIdx);
+  }
+  renderBoard();
+ 
+  // Show board with OTS "BEGIN MY TURN" prompt — don't auto-navigate to dashboard
+  showScreen('s-board');
+  updateOTS();
+}
+ 
+// =====================================================
+//  ONLINE TURN STATUS (OTS)
+// =====================================================
+function updateOTS() {
+  if (NET.mode === 'local') { document.getElementById('ots-wrap').style.display='none'; return; }
+  document.getElementById('ots-wrap').style.display = 'block';
+  const panel = document.getElementById('ots-panel');
+  if (G.gameOver) { panel.innerHTML=''; return; }
+ 
+  if (G.curTurnIdx >= G.turnQueue.length) {
+    if (NET.myPeerIdx === 0) {
+      // Host sees "start next round"
+      panel.className = 'ots-panel ots-round-end-host';
+      panel.innerHTML = `<div class="col gap-sm">
         <div class="label a">ROUND ${G.round} COMPLETE</div>
-        <div class="tiny dim">All turns submitted. Start the next round when ready.</div>
+        <div class="tiny dim">All turns done. Start the next round when ready.</div>
         <button class="btn btn-a btn-full" onclick="onlineHostNextRound()">START ROUND ${G.round+1} →</button>
       </div>`;
     } else {
-      panel.className='ots-panel ots-round-end-guest';
-      panel.innerHTML=`<div class="row gap-sm"><span class="spinner"></span><span class="tiny dim ml8">Round ${G.round} complete — waiting for host to start Round ${G.round+1}…</span></div>`;
+      panel.className = 'ots-panel ots-round-end-guest';
+      panel.innerHTML = `<div class="row gap-sm"><span class="spinner"></span><span class="tiny dim">&nbsp;Round ${G.round} complete — waiting for host…</span></div>`;
     }
     return;
   }
-
-  const cur=G.turnQueue[G.curTurnIdx];
-  const isMe=cur===NET.myPeerIdx;
-
-  if(isMe){
-    const isPath=cur===G.pathogenIdx;
-    panel.className='ots-panel ots-my-turn';
-    panel.innerHTML=`<div class="col gap-sm">
+ 
+  const cur = G.turnQueue[G.curTurnIdx];
+  const isMe = cur === NET.myPeerIdx;
+  if (isMe) {
+    const isPath = cur === G.pathogenIdx;
+    panel.className = 'ots-panel ots-my-turn';
+    panel.innerHTML = `<div class="col gap-sm">
       <div class="row gap-sm">
         <span class="label" style="color:var(--g)">YOUR TURN</span>
         <span class="ots-role-badge" style="color:${isPath?'var(--r)':'var(--b)'};border-color:${isPath?'var(--r)':'var(--b)'}">${isPath?'PATHOGEN':'SCIENTIST'}</span>
-        <span class="tiny dim ml-auto">${G.players[cur]}</span>
+        <span class="tiny dim ml-auto">${G.players[cur]||''}</span>
       </div>
       <button class="btn btn-g btn-lg btn-full" onclick="onlineBeginMyTurn()">▶ &nbsp;BEGIN MY TURN</button>
     </div>`;
   } else {
-    panel.className='ots-panel ots-waiting';
-    const name=G.players[cur]||'Unknown';
-    panel.innerHTML=`<div class="row gap-sm">
+    panel.className = 'ots-panel ots-waiting';
+    panel.innerHTML = `<div class="row gap-sm">
       <span class="spinner"></span>
-      <span class="tiny dim">&nbsp;${name.toUpperCase()} is taking their turn…</span>
+      <span class="tiny dim">&nbsp;${(G.players[cur]||'?').toUpperCase()} is taking their turn…</span>
       <span class="label ml-auto dim">TURN ${G.curTurnIdx+1}/${G.turnQueue.length}</span>
     </div>`;
   }
 }
-
-function onlineBeginMyTurn(){
-  // Show private handoff screen then go to dashboard
-  const pidx=NET.myPeerIdx;
-  document.getElementById('handoff-name').textContent=G.players[pidx].toUpperCase();
-  document.getElementById('handoff-sub').textContent='YOUR PRIVATE TURN — TAP TO CONTINUE';
-  G.handoffPhase='online-turn';
-  showScreen('s-handoff');
+ 
+function onlineBeginMyTurn() {
+  const pidx = NET.myPeerIdx;
+  if (pidx === G.pathogenIdx) { renderPathogenDash(); showScreen('s-path'); }
+  else { renderScientistDash(pidx); showScreen('s-sci'); }
 }
-
-function onlineHostNextRound(){
+ 
+function onlineHostNextRound() {
   endRound();
-  // endRound calls renderBoard which calls updateOTS
-  // Then we need to kick off the first turn of the new round
-  const firstPidx=G.turnQueue[0];
-  if(firstPidx===NET.myPeerIdx){
-    // Host is first — OTS will show their turn
-    updateOTS();
-  } else {
-    sendYourTurn(firstPidx);
-    updateOTS();
-  }
+  // Send first turn of new round
+  const firstPidx = G.turnQueue[0];
+  sendYourTurn(firstPidx);
   broadcastPublicUpdate();
+  updateOTS();
 }
-
+ 
+// =====================================================
+//  LOBBY UI HELPERS
+// =====================================================
+function updateLobbyUI() {
+  const count = NET.lobbyPlayers.length;
+  document.getElementById('lobby-count').textContent = `${count} / 6`;
+  const list = document.getElementById('lobby-player-list'); list.innerHTML = '';
+  NET.lobbyPlayers.forEach((p, i) => {
+    const d = document.createElement('div'); d.className = 'player-slot connected';
+    d.innerHTML = `<div class="pslot-dot"></div><span>${p.name}</span>${i===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}`;
+    list.appendChild(d);
+  });
+  for (let i=count; i<6; i++) {
+    const d = document.createElement('div'); d.className = 'player-slot waiting';
+    d.innerHTML = `<div class="pslot-dot"></div><span>Waiting for player…</span>`;
+    list.appendChild(d);
+  }
+  const can = count >= 3;
+  document.getElementById('btn-start-online').disabled = !can;
+  document.getElementById('lobby-hint').textContent = can
+    ? `${count} players connected — host can start`
+    : `Need at least 3 players (${count}/3)`;
+}
+ 
+function updateWaitingPlayerList(players) {
+  const el = document.getElementById('waiting-player-list'); if (!el) return;
+  el.innerHTML = players.map(p => `<div class="player-slot ${p.playerIdx===NET.myPeerIdx?'self connected':'connected'}">
+    <div class="pslot-dot"></div><span>${p.name}</span>
+    ${p.playerIdx===0?`<span class="label ml-auto" style="color:var(--a)">HOST</span>`:''}
+    ${p.playerIdx===NET.myPeerIdx?`<span class="label ml-auto b">YOU</span>`:''}
+  </div>`).join('');
+}
+ 
 // ===================================================
 //  GAME DATA
 // ===================================================
@@ -2839,8 +2852,7 @@ const PT={
     startProps:['spore-spread','immunotarget'],
     desc:'Spore-forming pathogen resistant to most drugs. Only antifungal agents are effective.'},
 };
-
-// Strain property definitions — each has tags that affect cure matching
+ 
 const STRAIN_PROPS={
   'airborne':{label:'AIRBORNE',col:'var(--r)',spreadMult:1.6,desc:'Spreads through air. High propagation.',tag:'respiratory'},
   'rapid-replication':{label:'RAPID REPLICATION',col:'var(--r)',spreadMult:1.4,desc:'Doubles in host quickly.',tag:'antiviral'},
@@ -2858,7 +2870,7 @@ const STRAIN_PROPS={
   'cytokine-storm':{label:'CYTOKINE STORM',col:'var(--r)',spreadMult:1.1,desc:'Induces deadly immune overreaction.',tag:'anti-inflammatory'},
   'cold-resistant':{label:'COLD RESISTANT',col:'var(--b)',spreadMult:1.2,desc:'Survives cold. Northern regions now high risk.',tag:null},
 };
-
+ 
 const MUT_PATHS=[
   {id:'transmission',label:'ENHANCED TRANSMISSION',desc:'Adds a new spread property. More regions infected.',props:['airborne','waterborne','zoonotic','cold-resistant'],icon:'mutate'},
   {id:'evasion',label:'DRUG EVASION',desc:'Gains drug resistance or structural shift.',props:['drug-resistant','structural-shift'],icon:'shield'},
@@ -2866,7 +2878,7 @@ const MUT_PATHS=[
   {id:'stealth',label:'STEALTH MODE',desc:'No new symptoms revealed for 2 rounds. Scientists lose 1 discovery.',props:[],icon:'warn',effect:'stealth'},
   {id:'replication',label:'RAPID REPLICATION',desc:'Boosts spread multiplier for 2 rounds.',props:['rapid-replication'],icon:'virus',effect:'replication'},
 ];
-
+ 
 const PATHOGEN_ACTIONS=[
   {id:'surge',label:'SURGE SPREAD',desc:'Aggressive push. +35% infection. +30% mut energy. Higher death toll.',mutGain:30,spreadMult:1.6,deathMult:1.5},
   {id:'steady',label:'STEADY SPREAD',desc:'Balanced spread. +20% mut energy.',mutGain:20,spreadMult:1.1,deathMult:1.0},
@@ -2875,8 +2887,7 @@ const PATHOGEN_ACTIONS=[
   {id:'suppress',label:'SUPPRESS SYMPTOMS',desc:'Fewer symptoms revealed to scientists this round. Costs 15% energy.',mutGain:-15,spreadMult:0.8,deathMult:0.8,suppress:true},
   {id:'fortify',label:'FORTIFY RESISTANCE',desc:'Temporarily reduce cure match accuracy by 1 for all scientists.',mutGain:10,spreadMult:0.9,deathMult:0.8,fortify:true},
 ];
-
-// Compound pools with tag-based effectiveness
+ 
 const COMPOUND_POOL={
   basic:[
     {name:'IBUPROFEN-GX',desc:'NSAIDs-class anti-inflammatory. Reduces fever and inflammation.',tags:['anti-inflammatory'],basePower:25,cost:200,eta:1},
@@ -2907,7 +2918,7 @@ const COMPOUND_POOL={
     {name:'IMMUNO-PRIME',desc:'Supercharges innate immune response. Broad synergy.',tags:['immune','antibody'],basePower:82,cost:2400,eta:3},
   ],
 };
-
+ 
 const DISCOVERY_POOLS={
   minor:[
     {text:'The pathogen appears to affect the respiratory system.',tags:['respiratory']},
@@ -2939,7 +2950,7 @@ const DISCOVERY_POOLS={
     {text:'Antiparasitic agent completely disrupts vector breeding cycle.',tags:['antiparasitic','vector']},
   ],
 };
-
+ 
 const PLANTS=[
   {name:'Artemisia annua',yieldChance:0.7,yieldTags:['antiparasitic','anti-inflammatory'],synTime:2,desc:'Traditional medicine plant. May yield antiparasitic compounds.'},
   {name:'Cinchona bark',yieldChance:0.65,yieldTags:['antiparasitic','vector'],synTime:2,desc:'Source of quinine. Strong antiparasitic potential.'},
@@ -2954,7 +2965,7 @@ const PLANTS=[
   {name:'Mangrove root extract',yieldChance:0.5,yieldTags:['anti-inflammatory','receptor'],synTime:2,desc:'Shows receptor-blocking activity in early tests.'},
   {name:'Unidentified seeds',yieldChance:0.25,yieldTags:[],synTime:1,desc:'Unknown provenance. Likely benign.'},
 ];
-
+ 
 // ===================================================
 //  GAME STATE
 // ===================================================
@@ -2967,7 +2978,7 @@ const G={
   pathogen:{
     type:null,mutEnergy:0,
     activeProps:new Set(),
-    mutations:[],// tree nodes
+    mutations:[],
     resistedTag:null,
     stealthRounds:0,
     fortifyRound:false,
@@ -2976,7 +2987,7 @@ const G={
     targetRegion:null,
     chosenMutPath:null,
   },
-  scientists:{},// idx -> sci state
+  scientists:{},
   world:{pop:7800,infected:0,dead:0},
   regions:[
     {name:'N. AMERICA',pop:580,infected:0},
@@ -2992,12 +3003,11 @@ const G={
   freeResearchUsed:{},
   gameOver:false,
 };
-
+ 
 // ===================================================
 //  SETUP
 // ===================================================
 let _playerCount=3;
-function goSetup(){showScreen('s-setup');renderPlayerRows()}
 function renderPlayerRows(){
   const el=document.getElementById('player-rows');el.innerHTML='';
   for(let i=0;i<_playerCount;i++){
@@ -3015,9 +3025,15 @@ function removePlayer(){if(_playerCount>3){_playerCount--;G.players.splice(_play
 function startGame(){
   G.players=[];
   document.querySelectorAll('[id^="pn"]').forEach((inp,i)=>G.players.push(inp.value.trim()||`Player ${i+1}`));
-  NET.mode='local';NET.myPeerIdx=0;
+  NET.mode='local'; NET.myPeerIdx=0;
   startGameLogic();
 }
+ 
+/**
+ * Core game initialisation. Called by both local startGame() and online hostStartGame().
+ * In online mode, emits 'game:start' to server which relays 'game:role-reveal' to everyone.
+ * In local mode, proceeds directly to handoff flow.
+ */
 function startGameLogic(){
   G.pathogenIdx=Math.floor(Math.random()*G.players.length);
   G.players.forEach((_,i)=>{
@@ -3028,39 +3044,29 @@ function startGameLogic(){
   });
   G.turnQueue=[...G.players.keys()].filter(i=>i!==G.pathogenIdx);
   G.turnQueue.push(G.pathogenIdx);
-  G.curTurnIdx=0;G.roleRevealIdx=0;G.handoffPhase='roleReveal';
-  if(NET.mode==='local'){showHandoff();}
-  else{
-    // Online: show each player their own role on their own device
-    renderRoleCard(NET.myPeerIdx);showScreen('s-role');
-    if(NET.mode==='online-host'){
-      // Tell guests to show role reveal
-      broadcastToAll({type:'game-start-roles',pathogenIdx:G.pathogenIdx,players:G.players,turnQueue:G.turnQueue});
-    }
+  G.curTurnIdx=0; G.roleRevealIdx=0; G.handoffPhase='roleReveal';
+ 
+  if(NET.mode==='local'){
+    showHandoff();
+  } else {
+    // Online: tell the server to relay role-reveal to all players (incl. host)
+    NET.socket.emit('game:start', {
+      pathogenIdx: G.pathogenIdx,
+      players: G.players,
+      turnQueue: G.turnQueue
+    });
+    // Host's own role-reveal comes back via the 'game:role-reveal' socket listener in sioHostLobby
   }
 }
+ 
 function addStartingCompounds(idx){
   const sci=G.scientists[idx];
   const pool=COMPOUND_POOL.basic;
   [pool[0],pool[3]].forEach(c=>sci.compounds.push({...c,eta:0,available:true,researched:false}));
 }
-
-// Handle online guest receiving game-start-roles  
-function handleGuestGameStartRoles(data){
-  G.pathogenIdx=data.pathogenIdx;
-  G.players=data.players;
-  G.turnQueue=data.turnQueue;
-  G.curTurnIdx=0;
-  // Setup scientist state if I'm a scientist
-  if(NET.myPeerIdx!==G.pathogenIdx){
-    G.scientists[NET.myPeerIdx]={fund:10000,compounds:[],plants:[],formula:[],discoveries:[],revenueLog:[],freeResearchDone:false,selectedCompIdx:null,cureAttempts:0,plantThisRound:false,pendingOrders:[],pendingSynths:[]};
-    addStartingCompounds(NET.myPeerIdx);
-  }
-  renderRoleCard(NET.myPeerIdx);showScreen('s-role');
-}
-
+ 
 // ===================================================
-//  HANDOFF / REVEAL
+//  HANDOFF / REVEAL (local mode)
 // ===================================================
 function showHandoff(){
   let name;
@@ -3070,14 +3076,8 @@ function showHandoff(){
   document.getElementById('handoff-sub').textContent=G.handoffPhase==='roleReveal'?'PASS DEVICE TO':'YOUR TURN BEGINS';
   showScreen('s-handoff');
 }
+ 
 function revealRole(){
-  if(G.handoffPhase==='online-turn'){
-    // Online mode: go directly to dashboard
-    const pidx=NET.myPeerIdx;
-    if(pidx===G.pathogenIdx){renderPathogenDash();showScreen('s-path');}
-    else{renderScientistDash(pidx);showScreen('s-sci');}
-    return;
-  }
   if(G.handoffPhase==='roleReveal'){
     renderRoleCard(G.roleRevealIdx);showScreen('s-role');
   } else {
@@ -3086,6 +3086,7 @@ function revealRole(){
     else{renderScientistDash(pidx);showScreen('s-sci');}
   }
 }
+ 
 function renderRoleCard(idx){
   const isPath=idx===G.pathogenIdx;
   const el=document.getElementById('role-content');
@@ -3114,6 +3115,7 @@ function renderRoleCard(idx){
     </div>`;
   }
 }
+ 
 function renderTypePickerCard(){
   const el=document.getElementById('type-picker-card');if(!el)return;el.innerHTML='';
   Object.entries(PT).forEach(([key,pt])=>{
@@ -3130,40 +3132,46 @@ function renderTypePickerCard(){
     el.appendChild(d);
   });
 }
+ 
 function onSciRoleAcknowledged(){
-  if(NET.mode==='local'){nextRoleReveal();}
-  else{
-    // Go to board and show OTS panel — turns will come via host
+  if(NET.mode==='local'){
+    nextRoleReveal();
+  } else {
+    // Online: go to board and wait for OTS to deliver our turn
     renderBoard();showScreen('s-board');updateOTS();
-    if(NET.mode==='online-host'){
-      // Host kicks off first turn after all roles acknowledged
-      // We assume pathogen acknowledged first (they pick type and call confirmTypeCard)
-      // Scientists just go to board
-    }
   }
 }
+ 
 function confirmTypeCard(){
   if(!G.pathogen.type)return;
   const pt=PT[G.pathogen.type];
   G.pathogen.activeProps=new Set(pt.startProps);
   G.pathogen.mutations=[{id:'origin',label:pt.label+' ORIGIN',props:pt.startProps,round:0,parent:null}];
+ 
   if(NET.mode==='online-guest'){
-    NET.hostConn.send({type:'pathogen-type-set',pathogenType:G.pathogen.type,activeProps:[...G.pathogen.activeProps],mutations:G.pathogen.mutations});
+    // Guest pathogen: tell host about type choice
+    NET.socket.emit('game:pathogen-type',{pathogenType:G.pathogen.type,activeProps:[...G.pathogen.activeProps],mutations:G.pathogen.mutations});
     renderBoard();showScreen('s-board');updateOTS();
   } else if(NET.mode==='online-host'){
-    broadcastPublicUpdate();renderBoard();showScreen('s-board');updateOTS();
+    // Host pathogen: broadcast state and start the first turn
+    broadcastPublicUpdate();
+    renderBoard();showScreen('s-board');
+    // Kick off the first turn
     const firstPidx=G.turnQueue[0];
-    if(firstPidx!==NET.myPeerIdx)sendYourTurn(firstPidx);
+    sendYourTurn(firstPidx);
+    updateOTS();
   } else {
+    // Local
     nextRoleReveal();
   }
 }
+ 
 function nextRoleReveal(){
   G.roleRevealIdx++;
   if(G.roleRevealIdx<G.players.length){showHandoff();}
   else{renderBoard();showScreen('s-board');}
 }
-
+ 
 // ===================================================
 //  PUBLIC BOARD
 // ===================================================
@@ -3172,15 +3180,15 @@ function renderBoard(){
   document.getElementById('stat-pop').textContent=fmt(G.world.pop*1e6);
   document.getElementById('stat-inf').textContent=fmt(G.world.infected*1e6);
   document.getElementById('stat-dead').textContent=fmt(G.world.dead*1e6);
-
+ 
   setTimeout(drawWorldHeatmap,50);
-
+ 
   const totalAffected=G.world.infected+G.world.dead;
   const threatPct=Math.min(100,Math.round((totalAffected/G.world.pop)*100*8));
   document.getElementById('threat-fill').style.width=threatPct+'%';
   const lvl=Math.min(5,Math.floor(threatPct/20)+1);
   document.getElementById('threat-label').textContent=`LEVEL ${isNaN(lvl)||threatPct===0?0:lvl}`;
-
+ 
   const rg=document.getElementById('regions-grid');rg.innerHTML='';
   G.regions.forEach(r=>{
     const pct=r.pop>0?Math.min(100,(r.infected/r.pop)*100):0;
@@ -3192,10 +3200,10 @@ function renderBoard(){
     <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%;background:linear-gradient(90deg,var(--a),var(--r))"></div></div>`;
     rg.appendChild(d);
   });
-
+ 
   const sl=document.getElementById('symptom-list');
   sl.innerHTML=G.knownSymptoms.length===0?'<span class="tiny dim">— NO DATA YET —</span>':G.knownSymptoms.map(s=>`<span class="symptom">${s}</span>`).join('');
-
+ 
   const tl=document.getElementById('turn-list');tl.innerHTML='';
   G.turnQueue.forEach((pidx,qi)=>{
     const cur=qi===G.curTurnIdx,done=qi<G.curTurnIdx;
@@ -3206,8 +3214,7 @@ function renderBoard(){
     d.innerHTML=`<div class="turn-dot"></div><span>${G.players[pidx]}${isMe?' (you)':''}</span><span class="tiny dim ml-auto">${role}</span>${done?ico('check','sm'):''}`;
     tl.appendChild(d);
   });
-
-  // In online mode, OTS panel handles navigation — hide/show the bottom button accordingly
+ 
   const btn=document.getElementById('btn-next-turn');
   if(NET.mode!=='local'){
     btn.style.display='none';
@@ -3221,193 +3228,119 @@ function renderBoard(){
     }
   }
 }
+ 
 function nextTurn(){
   if(G.curTurnIdx>=G.turnQueue.length){endRound();return;}
   if(NET.mode!=='local'){updateOTS();return;}
   G.handoffPhase='turn';showHandoff();
 }
-
+ 
 // =====================================================
-//  WORLD HEATMAP — full Natural Earth 110m quality
-//  lon/lat degrees, equirectangular projection
+//  WORLD HEATMAP
 // =====================================================
-
-// Complete world country polygons grouped by infection region.
-// Each country is an array of [lon,lat] vertices.
-// Source: Natural Earth 110m, hand-encoded.
 const GEO_REGIONS = [
   {
     id:'N. AMERICA', label:'N. AMERICA', labelLon:-95, labelLat:47,
     shapes:[
-      // Canada
       [[-141,60],[-130,60],[-124,50],[-123,49],[-110,49],[-100,49],[-95,49],[-84,46],[-82,45],[-79,43],[-76,44],[-71,45],[-70,47],[-67,47],[-65,44],[-61,46],[-60,47],[-64,48],[-66,49],[-68,50],[-70,50],[-72,52],[-68,54],[-65,60],[-68,60],[-70,62],[-74,62],[-77,61],[-78,60],[-83,62],[-87,61],[-90,64],[-94,62],[-96,60],[-98,60],[-102,60],[-106,60],[-110,60],[-114,60],[-120,60],[-124,60],[-130,59],[-136,59],[-141,60]],
-      // Alaska
       [[-141,60],[-141,68],[-148,70],[-156,71],[-162,70],[-166,68],[-168,66],[-168,60],[-162,55],[-152,58],[-148,60],[-144,60],[-141,60]],
-      // USA lower 48
       [[-124,49],[-123,49],[-110,49],[-100,49],[-95,49],[-84,46],[-82,45],[-79,43],[-76,44],[-71,42],[-70,42],[-70,41],[-72,41],[-74,40],[-75,38],[-76,35],[-77,34],[-80,32],[-82,30],[-84,30],[-85,30],[-88,30],[-89,29],[-90,29],[-91,29],[-93,30],[-94,30],[-96,26],[-97,26],[-99,27],[-100,28],[-104,29],[-106,31],[-110,31],[-114,32],[-117,32],[-118,34],[-120,34],[-122,38],[-124,40],[-124,42],[-124,46],[-124,49]],
-      // Mexico
       [[-117,32],[-114,32],[-110,24],[-106,20],[-104,19],[-97,22],[-91,18],[-88,16],[-88,18],[-90,18],[-92,18],[-94,18],[-96,19],[-97,20],[-99,22],[-100,23],[-104,19],[-106,20],[-110,24],[-114,29],[-117,32]],
-      // Central America
       [[-83,10],[-78,9],[-77,8],[-75,10],[-77,15],[-80,16],[-83,16],[-88,16],[-92,18],[-88,16],[-83,10]],
-      // Cuba
       [[-74,20],[-80,22],[-84,22],[-84,20],[-80,20],[-74,20]],
-      // Greenland
       [[-44,83],[-20,83],[-18,77],[-20,72],[-22,70],[-26,65],[-44,60],[-52,64],[-56,68],[-54,74],[-44,83]],
-      // Iceland
       [[-22,64],[-14,64],[-12,65],[-14,66],[-22,66],[-24,65],[-22,64]]
     ]
   },
   {
     id:'EUROPE', label:'EUROPE', labelLon:13, labelLat:50,
     shapes:[
-      // Norway
       [[5,58],[8,58],[10,59],[12,60],[14,62],[16,66],[18,68],[20,70],[24,71],[28,70],[30,68],[28,64],[26,60],[24,58],[20,56],[16,56],[14,55],[10,56],[8,58],[5,58]],
-      // Sweden
       [[10,56],[14,55],[18,56],[20,56],[24,58],[26,60],[24,64],[20,68],[18,68],[16,66],[14,62],[12,60],[10,59],[10,56]],
-      // Finland
       [[20,60],[24,60],[28,60],[30,62],[30,66],[28,68],[26,70],[24,70],[22,68],[20,68],[18,64],[18,60],[20,60]],
-      // Norway north
       [[28,70],[30,70],[30,68],[28,68],[26,70],[28,70]],
-      // Denmark
       [[8,55],[10,55],[12,56],[12,58],[10,58],[8,56],[8,55]],
-      // UK
       [[-6,50],[-2,50],[2,51],[1,52],[1,53],[0,54],[-2,56],[-4,57],[-6,56],[-5,55],[-4,54],[-3,53],[-4,52],[-5,50],[-6,50]],
-      // Ireland
       [[-10,52],[-8,51],[-6,52],[-6,54],[-8,54],[-10,54],[-10,52]],
-      // France + Benelux
       [[-4,44],[-2,44],[2,44],[4,44],[6,44],[8,44],[8,48],[7,48],[6,50],[4,50],[2,51],[0,51],[-2,49],[-2,47],[-4,47],[-4,44]],
-      // Iberia
       [[-10,36],[-8,36],[-2,36],[2,43],[0,44],[-2,44],[-4,44],[-6,44],[-8,43],[-10,42],[-10,36]],
-      // Italy
       [[7,44],[8,44],[10,44],[14,40],[15,38],[16,38],[16,40],[14,42],[12,44],[10,44],[8,46],[7,46],[7,44]],
-      // Germany + Austria + Switzerland
       [[6,48],[8,48],[10,48],[14,48],[16,48],[16,50],[14,52],[12,52],[10,52],[8,52],[6,52],[6,50],[6,48]],
-      // Poland + Czechia + Slovakia
       [[14,50],[16,50],[18,50],[20,50],[22,50],[24,52],[22,54],[20,54],[18,54],[16,54],[14,54],[14,52],[14,50]],
-      // Balkans + Hungary + Romania
       [[14,46],[16,48],[18,48],[20,48],[22,48],[24,46],[26,44],[28,44],[28,42],[26,40],[24,40],[22,40],[20,38],[18,40],[16,42],[14,44],[14,46]],
-      // Greece
       [[22,40],[24,40],[26,38],[24,36],[22,36],[20,36],[20,38],[22,40]],
-      // Baltic states
       [[20,54],[22,54],[24,54],[26,58],[24,60],[22,58],[20,56],[20,54]],
-      // Belarus + Ukraine
       [[24,52],[26,52],[28,52],[32,52],[34,48],[32,46],[30,46],[28,46],[26,48],[24,50],[22,50],[22,52],[24,52]],
-      // Russia west (European part)
       [[26,60],[28,60],[30,62],[32,62],[36,62],[38,56],[36,52],[34,52],[30,52],[28,52],[26,52],[24,54],[22,54],[20,54],[22,58],[26,60]]
     ]
   },
   {
     id:'E. ASIA', label:'E. ASIA', labelLon:108, labelLat:38,
     shapes:[
-      // Russia (Siberia + Far East)
       [[32,62],[36,62],[40,60],[42,60],[48,58],[54,58],[58,58],[64,62],[70,66],[74,70],[80,72],[90,72],[100,72],[110,70],[120,68],[130,66],[140,62],[144,60],[148,56],[150,52],[144,48],[138,48],[135,46],[134,44],[132,44],[130,42],[126,42],[122,42],[120,44],[118,48],[114,50],[110,54],[106,58],[100,58],[94,56],[90,54],[84,52],[78,52],[72,52],[64,52],[58,54],[54,58],[48,58],[42,60],[40,60],[36,62]],
-      // Mongolia
       [[88,50],[92,50],[96,50],[100,50],[104,50],[108,50],[112,50],[116,48],[120,48],[122,48],[122,44],[118,44],[114,42],[110,42],[106,42],[102,44],[98,44],[94,46],[90,46],[88,48],[88,50]],
-      // China
       [[76,38],[80,36],[84,28],[86,28],[88,28],[90,28],[92,24],[96,24],[100,22],[104,22],[108,22],[110,18],[108,12],[104,10],[100,2],[102,2],[104,4],[106,8],[108,12],[110,16],[114,22],[116,24],[120,24],[122,28],[122,32],[120,36],[118,40],[116,42],[112,42],[108,42],[106,42],[102,38],[98,38],[94,36],[90,36],[86,34],[80,34],[76,36],[76,38]],
-      // Korea
       [[126,34],[128,36],[130,38],[128,38],[126,36],[124,36],[126,34]],
-      // Japan
       [[130,32],[132,34],[134,36],[136,36],[138,38],[140,40],[140,42],[138,44],[136,44],[134,42],[132,36],[130,34],[130,32]],
-      // Hokkaido
       [[140,42],[142,44],[144,44],[144,42],[142,42],[140,42]],
-      // Taiwan
       [[120,22],[122,24],[122,22],[120,22]],
-      // Vietnam + Cambodia + Laos + Thailand
       [[100,20],[102,18],[104,12],[102,10],[100,4],[102,2],[104,2],[106,10],[108,16],[106,18],[104,18],[102,18],[100,20]],
-      // Myanmar + Bangladesh
       [[92,24],[94,22],[96,22],[98,22],[100,22],[100,24],[98,26],[96,28],[94,28],[92,28],[92,24]],
-      // Malaysia peninsular
       [[100,4],[102,4],[104,4],[104,2],[102,2],[100,4]],
-      // Indonesia (Sumatra)
       [[96,2],[98,0],[104,-2],[106,-4],[104,-6],[100,-4],[96,-2],[96,2]],
-      // Indonesia (Java)
       [[106,-6],[108,-6],[110,-8],[112,-8],[114,-8],[112,-6],[108,-6],[106,-6]],
-      // Indonesia (Borneo)
       [[108,2],[110,2],[116,4],[118,4],[118,0],[116,-2],[114,-4],[110,-2],[108,0],[108,2]],
-      // Philippines
       [[118,18],[120,16],[122,14],[124,8],[122,8],[118,10],[116,14],[118,18]],
-      // Kamchatka
       [[160,56],[162,54],[162,50],[164,50],[166,54],[162,58],[160,56]]
     ]
   },
   {
     id:'S. ASIA', label:'S. ASIA', labelLon:72, labelLat:22,
     shapes:[
-      // India
       [[68,36],[70,34],[72,34],[76,36],[78,36],[80,30],[82,28],[84,28],[86,28],[88,26],[90,24],[92,22],[90,20],[88,20],[86,20],[84,18],[82,16],[80,12],[78,8],[76,8],[74,12],[72,22],[68,24],[66,24],[64,22],[64,24],[68,28],[68,36]],
-      // Pakistan
       [[62,22],[64,22],[68,24],[68,28],[70,34],[68,36],[64,36],[62,36],[60,34],[58,30],[58,26],[60,24],[62,22]],
-      // Afghanistan
       [[62,36],[64,36],[66,38],[68,38],[70,38],[72,38],[72,36],[70,34],[68,36],[64,36],[62,36]],
-      // Iran
       [[44,38],[46,38],[48,38],[50,38],[54,38],[58,36],[60,36],[62,36],[60,30],[58,28],[56,26],[56,24],[54,24],[52,22],[50,22],[48,24],[46,24],[44,26],[44,30],[44,34],[44,38]],
-      // Iraq + Syria + Lebanon + Jordan
       [[36,32],[38,34],[40,36],[42,36],[44,36],[46,36],[48,34],[48,30],[46,28],[44,28],[42,30],[40,30],[38,30],[36,32]],
-      // Turkey
       [[26,36],[28,38],[30,40],[32,40],[36,38],[38,38],[40,38],[42,38],[44,38],[44,36],[42,36],[38,36],[36,36],[34,36],[30,36],[28,36],[26,36]],
-      // Saudi Arabia + Yemen + Oman + UAE
       [[36,28],[38,28],[40,22],[44,14],[46,14],[48,16],[50,18],[54,22],[56,24],[58,22],[56,22],[56,18],[54,14],[50,12],[46,10],[44,14],[40,22],[38,28],[36,28]],
-      // Sri Lanka
       [[80,8],[82,8],[82,6],[80,6],[80,8]],
-      // Nepal + Bhutan
       [[80,28],[82,28],[84,28],[86,28],[88,28],[90,28],[88,26],[86,26],[84,26],[82,26],[80,28]],
-      // Kazakhstan
       [[52,50],[56,52],[60,52],[64,52],[68,52],[72,52],[76,50],[80,50],[80,46],[76,44],[72,42],[68,40],[64,40],[60,40],[56,40],[52,44],[52,50]],
-      // Uzbekistan + Turkmenistan + Tajikistan + Kyrgyzstan
-      [[56,40],[60,40],[64,40],[68,40],[72,38],[68,38],[66,38],[64,36],[62,36],[60,36],[58,36],[56,38],[56,40]],
-      // Middle East peninsula
-      [[36,28],[38,28],[40,28],[42,28],[44,28],[46,28],[48,26],[50,24],[52,22],[50,20],[48,18],[46,14],[44,14],[42,16],[40,18],[38,22],[36,24],[36,28]]
+      [[56,40],[60,40],[64,40],[68,40],[72,38],[68,38],[66,38],[64,36],[62,36],[60,36],[58,36],[56,38],[56,40]]
     ]
   },
   {
     id:'AFRICA', label:'AFRICA', labelLon:18, labelLat:2,
     shapes:[
-      // Morocco + Algeria + Tunisia + Libya
       [[-6,36],[0,36],[4,38],[8,38],[10,34],[12,32],[14,30],[18,28],[20,26],[24,20],[24,10],[20,10],[16,14],[12,14],[8,14],[4,12],[0,14],[-4,12],[-8,14],[-14,12],[-16,16],[-16,20],[-12,24],[-8,28],[-4,30],[-2,34],[-4,36],[-6,36]],
-      // Egypt + Sudan
       [[24,32],[28,30],[32,28],[34,22],[36,20],[38,16],[40,16],[42,12],[42,8],[40,8],[36,8],[34,4],[32,4],[30,4],[28,4],[26,4],[24,8],[22,12],[22,16],[22,20],[24,24],[24,32]],
-      // Horn of Africa (Ethiopia, Somalia, Eritrea)
       [[36,20],[38,18],[40,16],[42,12],[44,10],[46,10],[48,12],[50,12],[50,8],[48,4],[46,2],[44,-2],[42,-4],[40,-2],[38,0],[36,4],[36,8],[36,12],[36,20]],
-      // East Africa (Kenya, Tanzania, Uganda, Rwanda, etc.)
       [[30,4],[34,0],[36,-4],[36,-8],[34,-12],[32,-14],[32,-18],[32,-22],[30,-18],[28,-14],[26,-10],[24,-6],[24,-2],[26,2],[28,4],[30,4]],
-      // West Africa (Nigeria, Ghana, Senegal, etc.)
       [[-16,14],[-14,12],[-8,14],[-4,12],[0,6],[4,6],[8,6],[10,4],[12,4],[14,4],[16,4],[18,4],[20,4],[22,4],[24,4],[22,8],[20,10],[16,14],[12,14],[8,14],[4,12],[0,14],[-4,12],[-8,14],[-12,12],[-16,12],[-16,14]],
-      // Central Africa (DRC, Congo, CAR, etc.)
       [[16,4],[18,8],[20,8],[24,4],[24,0],[24,-4],[24,-8],[22,-10],[20,-14],[18,-16],[16,-8],[14,-6],[12,-4],[12,0],[12,4],[14,4],[16,4]],
-      // Southern Africa (Angola, Zambia, Zimbabwe, Mozambique, SA)
       [[12,-4],[14,-6],[16,-8],[18,-16],[20,-14],[22,-10],[24,-8],[26,-8],[28,-8],[30,-8],[32,-12],[34,-12],[36,-8],[36,-4],[34,0],[30,0],[28,-2],[26,-2],[24,-2],[22,-4],[20,-4],[18,-4],[16,-4],[14,-4],[12,-4]],
-      // South Africa proper
       [[16,-28],[18,-28],[20,-30],[22,-34],[26,-34],[28,-32],[30,-30],[30,-28],[28,-26],[26,-24],[24,-24],[22,-26],[18,-28],[16,-28]],
-      // Madagascar
       [[44,-12],[48,-14],[50,-16],[50,-22],[48,-26],[46,-24],[44,-20],[44,-16],[44,-12]]
     ]
   },
   {
     id:'OCEANIA', label:'OCEANIA', labelLon:134, labelLat:-25,
     shapes:[
-      // Australia west
       [[114,-22],[118,-18],[122,-16],[126,-14],[130,-12],[132,-12],[134,-12],[136,-14],[136,-18],[138,-20],[136,-24],[132,-28],[128,-32],[124,-34],[120,-34],[116,-32],[114,-26],[114,-22]],
-      // Australia east
       [[136,-14],[138,-16],[140,-18],[142,-14],[144,-12],[148,-18],[152,-26],[154,-28],[152,-34],[148,-38],[146,-38],[144,-36],[140,-36],[138,-34],[136,-32],[136,-26],[136,-22],[136,-18],[136,-14]],
-      // Australia south
       [[132,-28],[134,-28],[136,-30],[138,-34],[140,-36],[136,-34],[132,-34],[128,-34],[128,-32],[132,-28]],
-      // New Guinea
       [[132,-2],[136,-4],[140,-6],[144,-6],[148,-6],[148,-8],[144,-8],[140,-8],[136,-6],[132,-4],[132,-2]],
-      // New Zealand North Island
       [[172,-36],[174,-38],[176,-38],[178,-38],[178,-40],[176,-42],[174,-42],[172,-40],[170,-38],[172,-36]],
-      // New Zealand South Island
-      [[168,-44],[170,-44],[172,-44],[172,-46],[170,-48],[168,-46],[166,-44],[168,-44]],
-      // Sumatra (partial, already in E Asia but fill gap)
-      [[96,4],[98,2],[102,0],[104,-2],[104,-4],[100,-4],[96,-2],[96,4]]
+      [[168,-44],[170,-44],[172,-44],[172,-46],[170,-48],[168,-46],[166,-44],[168,-44]]
     ]
   }
 ];
-
+ 
 function geoToCanvas(lon, lat, cW, cH) {
   return [(lon + 180) / 360 * cW, (90 - lat) / 180 * cH];
 }
-
+ 
 function infectionColor(pct) {
   if (pct <= 0)    return {fill:'rgba(16,36,52,0.9)',  stroke:'rgba(22,50,68,0.7)',  glow:false};
   if (pct < 0.04)  return {fill:`rgba(14,90,60,${0.55+pct*8})`,  stroke:'rgba(20,160,90,0.45)',  glow:false};
@@ -3416,122 +3349,63 @@ function infectionColor(pct) {
   if (pct < 0.5)   return {fill:`rgba(210,30,40,${0.72+pct*0.4})`,stroke:'rgba(255,60,70,0.85)', glow:true};
   return               {fill:`rgba(180,10,20,${Math.min(1,0.82+pct*0.3)})`,stroke:'rgba(255,80,90,0.95)',glow:true};
 }
-
+ 
 function drawWorldHeatmap() {
   const canvas = document.getElementById('world-map-canvas');
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   const cW = canvas.parentElement.clientWidth || 360;
   const cH = Math.round(cW * 0.48);
-  canvas.style.width = cW + 'px';
-  canvas.style.height = cH + 'px';
-  canvas.width = cW * dpr;
-  canvas.height = cH * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  // ── Ocean ────────────────────────────────────────
+  canvas.style.width = cW + 'px'; canvas.style.height = cH + 'px';
+  canvas.width = cW * dpr; canvas.height = cH * dpr;
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
   const oceanG = ctx.createLinearGradient(0,0,0,cH);
   oceanG.addColorStop(0,'#05101a'); oceanG.addColorStop(1,'#040c14');
   ctx.fillStyle = oceanG; ctx.fillRect(0,0,cW,cH);
-
-  // ── Ocean texture — subtle noise dots ─────────────
   ctx.fillStyle='rgba(10,30,46,0.25)';
-  for(let gx=0;gx<cW;gx+=18) for(let gy=0;gy<cH;gy+=14){
-    ctx.beginPath();ctx.arc(gx+(Math.sin(gx*gy)*3),gy+(Math.cos(gx+gy)*2),0.7,0,Math.PI*2);ctx.fill();
-  }
-
-  // ── Lat/lon graticule ────────────────────────────
-  ctx.lineWidth = 0.4;
-  for (let lat=-60;lat<=90;lat+=30) {
-    const [,y]=geoToCanvas(0,lat,cW,cH);
-    ctx.strokeStyle = lat===0?'rgba(30,70,90,0.8)':'rgba(16,40,55,0.5)';
-    ctx.lineWidth = lat===0?0.7:0.3;
-    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cW,y);ctx.stroke();
-  }
-  for (let lon=-120;lon<=180;lon+=60) {
-    const [x]=geoToCanvas(lon,0,cW,cH);
-    ctx.strokeStyle='rgba(16,40,55,0.4)'; ctx.lineWidth=0.3;
-    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cH);ctx.stroke();
-  }
-
-  // Build infection lookup
+  for(let gx=0;gx<cW;gx+=18)for(let gy=0;gy<cH;gy+=14){ctx.beginPath();ctx.arc(gx+(Math.sin(gx*gy)*3),gy+(Math.cos(gx+gy)*2),0.7,0,Math.PI*2);ctx.fill();}
+  ctx.lineWidth=0.4;
+  for(let lat=-60;lat<=90;lat+=30){const[,y]=geoToCanvas(0,lat,cW,cH);ctx.strokeStyle=lat===0?'rgba(30,70,90,0.8)':'rgba(16,40,55,0.5)';ctx.lineWidth=lat===0?0.7:0.3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cW,y);ctx.stroke();}
+  for(let lon=-120;lon<=180;lon+=60){const[x]=geoToCanvas(lon,0,cW,cH);ctx.strokeStyle='rgba(16,40,55,0.4)';ctx.lineWidth=0.3;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cH);ctx.stroke();}
   const infMap={};
-  G.regions.forEach(r=>{ infMap[r.name]=r.pop>0?Math.min(1,r.infected/r.pop):0; });
-
-  // ── Draw land shapes ──────────────────────────────
-  GEO_REGIONS.forEach(region => {
-    const pct = infMap[region.id] || 0;
-    const col = infectionColor(pct);
-    region.shapes.forEach(poly => {
-      ctx.save();
-      ctx.beginPath();
-      poly.forEach(([lon,lat],i)=>{
-        const [x,y]=geoToCanvas(lon,lat,cW,cH);
-        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-      });
+  G.regions.forEach(r=>{infMap[r.name]=r.pop>0?Math.min(1,r.infected/r.pop):0;});
+  GEO_REGIONS.forEach(region=>{
+    const pct=infMap[region.id]||0;const col=infectionColor(pct);
+    region.shapes.forEach(poly=>{
+      ctx.save();ctx.beginPath();
+      poly.forEach(([lon,lat],i)=>{const[x,y]=geoToCanvas(lon,lat,cW,cH);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
       ctx.closePath();
       if(col.glow){ctx.shadowColor='rgba(220,20,40,0.6)';ctx.shadowBlur=10;}
-      ctx.fillStyle=col.fill; ctx.fill();
-      ctx.shadowBlur=0;
-      ctx.strokeStyle=col.stroke; ctx.lineWidth=0.7; ctx.stroke();
-      ctx.restore();
+      ctx.fillStyle=col.fill;ctx.fill();ctx.shadowBlur=0;
+      ctx.strokeStyle=col.stroke;ctx.lineWidth=0.7;ctx.stroke();ctx.restore();
     });
   });
-
-  // ── Pulse animation for critical regions ──────────
-  const t=(Date.now()%2800)/2800;
-  const pa=Math.sin(t*Math.PI)*0.6;
+  const t=(Date.now()%2800)/2800;const pa=Math.sin(t*Math.PI)*0.6;
   GEO_REGIONS.forEach(region=>{
-    const pct=infMap[region.id]||0; if(pct<0.28)return;
+    const pct=infMap[region.id]||0;if(pct<0.28)return;
     region.shapes.forEach(poly=>{
-      ctx.save();
-      ctx.beginPath();
-      poly.forEach(([lon,lat],i)=>{
-        const [x,y]=geoToCanvas(lon,lat,cW,cH);
-        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-      });
-      ctx.closePath();
-      ctx.strokeStyle=`rgba(255,50,70,${pa*(pct-0.28)*2})`;
-      ctx.lineWidth=2+pa*3; ctx.shadowColor='rgba(255,40,60,0.5)'; ctx.shadowBlur=8;
-      ctx.stroke(); ctx.restore();
+      ctx.save();ctx.beginPath();
+      poly.forEach(([lon,lat],i)=>{const[x,y]=geoToCanvas(lon,lat,cW,cH);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+      ctx.closePath();ctx.strokeStyle=`rgba(255,50,70,${pa*(pct-0.28)*2})`;ctx.lineWidth=2+pa*3;ctx.shadowColor='rgba(255,40,60,0.5)';ctx.shadowBlur=8;ctx.stroke();ctx.restore();
     });
   });
-
-  // ── Labels ────────────────────────────────────────
   const fs=Math.max(7,Math.min(10,cW/42));
   GEO_REGIONS.forEach(region=>{
-    const pct=infMap[region.id]||0;
-    const [lx,ly]=geoToCanvas(region.labelLon,region.labelLat,cW,cH);
-    ctx.save();
-    ctx.shadowColor='rgba(0,0,0,0.95)'; ctx.shadowBlur=4;
-    ctx.font=`bold ${fs}px "Bebas Neue",sans-serif`;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const pct=infMap[region.id]||0;const[lx,ly]=geoToCanvas(region.labelLon,region.labelLat,cW,cH);
+    ctx.save();ctx.shadowColor='rgba(0,0,0,0.95)';ctx.shadowBlur=4;
+    ctx.font=`bold ${fs}px "Bebas Neue",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=pct>0.01?'rgba(255,255,255,0.9)':'rgba(40,80,108,0.75)';
     ctx.fillText(region.label,lx,ly-(pct>0?fs*0.6:0));
-    if(pct>0){
-      ctx.font=`${Math.max(6,fs-2)}px "Courier Prime",monospace`;
-      ctx.fillStyle=pct>0.28?'rgba(255,120,130,0.95)':pct>0.12?'rgba(255,180,60,0.95)':'rgba(80,210,140,0.9)';
-      ctx.fillText(Math.round(pct*100)+'%',lx,ly+fs*0.7);
-    }
+    if(pct>0){ctx.font=`${Math.max(6,fs-2)}px "Courier Prime",monospace`;ctx.fillStyle=pct>0.28?'rgba(255,120,130,0.95)':pct>0.12?'rgba(255,180,60,0.95)':'rgba(80,210,140,0.9)';ctx.fillText(Math.round(pct*100)+'%',lx,ly+fs*0.7);}
     ctx.restore();
   });
-
-  // ── Scanlines ─────────────────────────────────────
-  for(let sy=0;sy<cH;sy+=3){
-    ctx.fillStyle='rgba(0,0,0,0.04)'; ctx.fillRect(0,sy,cW,1);
-  }
-
-  // ── Border frame ─────────────────────────────────
-  ctx.strokeStyle='rgba(28,50,68,0.8)'; ctx.lineWidth=1.5;
-  ctx.strokeRect(0,0,cW,cH);
-
-  // ── Vignette ─────────────────────────────────────
+  for(let sy=0;sy<cH;sy+=3){ctx.fillStyle='rgba(0,0,0,0.04)';ctx.fillRect(0,sy,cW,1);}
+  ctx.strokeStyle='rgba(28,50,68,0.8)';ctx.lineWidth=1.5;ctx.strokeRect(0,0,cW,cH);
   const vig=ctx.createRadialGradient(cW/2,cH/2,cH*0.28,cW/2,cH/2,cH*0.9);
-  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.5)');
-  ctx.fillStyle=vig; ctx.fillRect(0,0,cW,cH);
+  vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,0,0.5)');
+  ctx.fillStyle=vig;ctx.fillRect(0,0,cW,cH);
 }
-
+ 
 // ===================================================
 //  PATHOGEN DASHBOARD
 // ===================================================
@@ -3542,630 +3416,293 @@ function renderPathogenDash(){
   document.getElementById('path-icon-el').style.color=pt.col;
   document.getElementById('path-type-disp').textContent=pt.label;
   document.getElementById('path-type-disp').style.color=pt.col;
-
-  // Energy
   const e=Math.min(100,Math.round(G.pathogen.mutEnergy));
   document.getElementById('path-mut-pct').textContent=e+'%';
   document.getElementById('mut-energy-bar').style.width=e+'%';
   const ready=e>=100;
   document.getElementById('mut-ready-msg').style.display=ready?'block':'none';
   document.getElementById('btn-trigger-mut').style.display=ready?'block':'none';
-
-  // Draw mutation tree
-  drawMutTree();
-
-  // Active strain props
-  renderActiveProps();
-
-  // Actions
-  renderPathActions();
+  drawMutTree();renderActiveProps();renderPathActions();
 }
 function renderActiveProps(){
   const el=document.getElementById('active-strain-props');
-  el.innerHTML='<div class="strain-props">'+
-    [...G.pathogen.activeProps].map(p=>{
-      const sp=STRAIN_PROPS[p];if(!sp)return'';
-      return`<span class="prop-tag active" style="border-color:${sp.col};color:${sp.col}">${sp.label}</span>`;
-    }).join('')+
-  '</div>';
+  el.innerHTML='<div class="strain-props">'+[...G.pathogen.activeProps].map(p=>{const sp=STRAIN_PROPS[p];if(!sp)return'';return`<span class="prop-tag active" style="border-color:${sp.col};color:${sp.col}">${sp.label}</span>`;}).join('')+'</div>';
   if(G.pathogen.activeProps.size===0)el.innerHTML='<span class="tiny dim">No active strain properties yet</span>';
 }
 function renderPathActions(){
   const el=document.getElementById('path-action-grid');el.innerHTML='';
   G.pathogen.selectedActions=[];
   PATHOGEN_ACTIONS.forEach(a=>{
-    const d=document.createElement('div');
-    d.className='action-card';d.dataset.id=a.id;
+    const d=document.createElement('div');d.className='action-card';d.dataset.id=a.id;
     d.innerHTML=`<div class="action-title">${a.label}</div><div class="action-desc">${a.desc}</div>`;
-    d.onclick=()=>togglePathAction(d,a);
-    el.appendChild(d);
+    d.onclick=()=>togglePathAction(d,a);el.appendChild(d);
   });
 }
 function togglePathAction(el,action){
   const sel=G.pathogen.selectedActions;
-  if(sel.includes(action.id)){
-    sel.splice(sel.indexOf(action.id),1);el.classList.remove('selected');
-  } else {
-    if(sel.length>=2){showToast('Max 2 actions per round','a');return;}
-    sel.push(action.id);el.classList.add('selected');
-  }
+  if(sel.includes(action.id)){sel.splice(sel.indexOf(action.id),1);el.classList.remove('selected');}
+  else{if(sel.length>=2){showToast('Max 2 actions per round','a');return;}sel.push(action.id);el.classList.add('selected');}
 }
-
-// =====================================================
-//  HIGH-QUALITY MUTATION TREE
-// =====================================================
+ 
 function drawMutTree(){
-  const canvas=document.getElementById('mut-tree-canvas');
-  if(!canvas)return;
-  const muts=G.pathogen.mutations;
-  if(!muts||muts.length===0){canvas.width=340;canvas.height=100;return;}
-
-  const dpr=window.devicePixelRatio||1;
-  const byId={};
-  muts.forEach(m=>byId[m.id]=m);
-
+  const canvas=document.getElementById('mut-tree-canvas');if(!canvas)return;
+  const muts=G.pathogen.mutations;if(!muts||muts.length===0){canvas.width=340;canvas.height=100;return;}
+  const dpr=window.devicePixelRatio||1;const byId={};muts.forEach(m=>byId[m.id]=m);
   function depth(m){if(!m.parent)return 0;const p=byId[m.parent];return p?1+depth(p):1;}
-  const levels={};
-  muts.forEach(m=>{const d=depth(m);(levels[d]=levels[d]||[]).push(m);});
+  const levels={};muts.forEach(m=>{const d=depth(m);(levels[d]=levels[d]||[]).push(m);});
   const maxDepth=Math.max(...Object.keys(levels).map(Number));
-
-  // Node dimensions — tall enough to show prop pills below label
   const NODE_W=150;const NODE_H=56;const LEVEL_H=130;const PAD_X=24;const PAD_Y=28;
   const maxInLevel=Math.max(...Object.values(levels).map(a=>a.length));
-  const cssW=Math.max(360,maxInLevel*(NODE_W+24)+PAD_X*2);
-  const cssH=(maxDepth+1)*LEVEL_H+PAD_Y*2+20;
-
-  canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';
-  canvas.width=cssW*dpr;canvas.height=cssH*dpr;
-  const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr);
-  ctx.clearRect(0,0,cssW,cssH);
-
-  // Subtle bg grid
-  ctx.fillStyle='rgba(28,45,58,0.35)';
-  for(let gx=0;gx<cssW;gx+=22)for(let gy=0;gy<cssH;gy+=22){
-    ctx.beginPath();ctx.arc(gx,gy,0.7,0,Math.PI*2);ctx.fill();
-  }
-
-  // Node positions
+  const cssW=Math.max(360,maxInLevel*(NODE_W+24)+PAD_X*2);const cssH=(maxDepth+1)*LEVEL_H+PAD_Y*2+20;
+  canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=cssW*dpr;canvas.height=cssH*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,cssW,cssH);
+  ctx.fillStyle='rgba(28,45,58,0.35)';for(let gx=0;gx<cssW;gx+=22)for(let gy=0;gy<cssH;gy+=22){ctx.beginPath();ctx.arc(gx,gy,0.7,0,Math.PI*2);ctx.fill();}
   const pos={};
   Object.entries(levels).forEach(([d,nodes])=>{
-    const y=PAD_Y+Number(d)*LEVEL_H+NODE_H/2;
-    const totalW=nodes.length*NODE_W+(nodes.length-1)*24;
-    let x=(cssW-totalW)/2+NODE_W/2;
-    nodes.forEach(n=>{pos[n.id]={x,y};x+=NODE_W+24;});
+    const y=PAD_Y+Number(d)*LEVEL_H+NODE_H/2;const totalW=nodes.length*NODE_W+(nodes.length-1)*24;
+    let x=(cssW-totalW)/2+NODE_W/2;nodes.forEach(n=>{pos[n.id]={x,y};x+=NODE_W+24;});
   });
-
-  // Bezier edges with glow
   muts.forEach(m=>{
     if(!m.parent||!pos[m.parent]||!pos[m.id])return;
-    const p=pos[m.parent],c=pos[m.id];
-    const midY=(p.y+NODE_H/2+c.y-NODE_H/2)/2;
-    ctx.save();
-    ctx.shadowColor='rgba(232,53,74,0.5)';ctx.shadowBlur=10;
-    const grad=ctx.createLinearGradient(p.x,p.y,c.x,c.y);
-    grad.addColorStop(0,'rgba(232,53,74,0.65)');
-    grad.addColorStop(1,'rgba(245,166,35,0.65)');
-    ctx.strokeStyle=grad;ctx.lineWidth=1.8;
-    ctx.beginPath();
-    ctx.moveTo(p.x,p.y+NODE_H/2);
-    ctx.bezierCurveTo(p.x,midY,c.x,midY,c.x,c.y-NODE_H/2);
-    ctx.stroke();
-    ctx.restore();
-    // Arrowhead
-    ctx.save();
-    ctx.fillStyle='rgba(245,166,35,0.85)';
-    ctx.translate(c.x,c.y-NODE_H/2);
-    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-5,-8);ctx.lineTo(5,-8);ctx.closePath();ctx.fill();
-    ctx.restore();
+    const p=pos[m.parent],c=pos[m.id];const midY=(p.y+NODE_H/2+c.y-NODE_H/2)/2;
+    ctx.save();ctx.shadowColor='rgba(232,53,74,0.5)';ctx.shadowBlur=10;
+    const grad=ctx.createLinearGradient(p.x,p.y,c.x,c.y);grad.addColorStop(0,'rgba(232,53,74,0.65)');grad.addColorStop(1,'rgba(245,166,35,0.65)');
+    ctx.strokeStyle=grad;ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(p.x,p.y+NODE_H/2);ctx.bezierCurveTo(p.x,midY,c.x,midY,c.x,c.y-NODE_H/2);ctx.stroke();ctx.restore();
+    ctx.save();ctx.fillStyle='rgba(245,166,35,0.85)';ctx.translate(c.x,c.y-NODE_H/2);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-5,-8);ctx.lineTo(5,-8);ctx.closePath();ctx.fill();ctx.restore();
   });
-
-  // Nodes
   muts.forEach(m=>{
-    if(!pos[m.id])return;
-    const {x,y}=pos[m.id];
-    const isOrigin=m.id==='origin';
-    const [ar,ag,ab]=isOrigin?[232,53,74]:[245,166,35];
-    const accent=`rgb(${ar},${ag},${ab})`;
+    if(!pos[m.id])return;const{x,y}=pos[m.id];const isOrigin=m.id==='origin';
+    const[ar,ag,ab]=isOrigin?[232,53,74]:[245,166,35];const accent=`rgb(${ar},${ag},${ab})`;
     const nx=x-NODE_W/2,ny=y-NODE_H/2,r=5;
-
-    // Glow + rounded rect
-    ctx.save();
-    ctx.shadowColor=accent;ctx.shadowBlur=isOrigin?18:10;
+    ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=isOrigin?18:10;
     const rr=(xx,yy,ww,hh,rr)=>{ctx.beginPath();ctx.moveTo(xx+rr,yy);ctx.lineTo(xx+ww-rr,yy);ctx.quadraticCurveTo(xx+ww,yy,xx+ww,yy+rr);ctx.lineTo(xx+ww,yy+hh-rr);ctx.quadraticCurveTo(xx+ww,yy+hh,xx+ww-rr,yy+hh);ctx.lineTo(xx+rr,yy+hh);ctx.quadraticCurveTo(xx,yy+hh,xx,yy+hh-rr);ctx.lineTo(xx,yy+rr);ctx.quadraticCurveTo(xx,yy,xx+rr,yy);ctx.closePath();};
     rr(nx,ny,NODE_W,NODE_H,r);
-    const bg=ctx.createLinearGradient(nx,ny,nx,ny+NODE_H);
-    bg.addColorStop(0,'rgba(14,24,32,0.98)');
-    bg.addColorStop(1,`rgba(${ar},${ag},${ab},0.12)`);
-    ctx.fillStyle=bg;ctx.fill();
-    ctx.strokeStyle=accent;ctx.lineWidth=isOrigin?2:1.4;ctx.stroke();
-    ctx.restore();
-
-    // Left accent stripe
-    ctx.fillStyle=accent;
-    ctx.beginPath();
-    ctx.moveTo(nx,ny+r);ctx.lineTo(nx,ny+NODE_H-r);
-    ctx.quadraticCurveTo(nx,ny+NODE_H,nx+r,ny+NODE_H);
-    ctx.lineTo(nx+r,ny);ctx.quadraticCurveTo(nx,ny,nx,ny+r);
-    ctx.closePath();ctx.fill();
-
-    // Round badge (top-right)
-    if(m.round>0){
-      const bw=26,bh=14,bx=nx+NODE_W-bw-4,by=ny+4;
-      ctx.fillStyle='rgba(6,11,16,0.92)';
-      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.7)`;ctx.lineWidth=1;
-      ctx.beginPath();ctx.roundRect(bx,by,bw,bh,3);ctx.fill();ctx.stroke();
-      ctx.fillStyle=`rgba(${ar},${ag},${ab},0.95)`;
-      ctx.font='7.5px "Courier Prime",monospace';
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('RND '+m.round,bx+bw/2,by+bh/2);
-    }
-
-    // Node label (top section)
-    ctx.fillStyle=isOrigin?'#ff8890':'#ffe090';
-    ctx.font=`bold ${isOrigin?10.5:9.5}px "Bebas Neue",sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='top';
-    const words=(m.label||'MUTATION').toUpperCase().split(' ');
-    const line1=words.slice(0,3).join(' ');
-    const line2=words.slice(3,6).join(' ');
+    const bg=ctx.createLinearGradient(nx,ny,nx,ny+NODE_H);bg.addColorStop(0,'rgba(14,24,32,0.98)');bg.addColorStop(1,`rgba(${ar},${ag},${ab},0.12)`);
+    ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle=accent;ctx.lineWidth=isOrigin?2:1.4;ctx.stroke();ctx.restore();
+    ctx.fillStyle=accent;ctx.beginPath();ctx.moveTo(nx,ny+r);ctx.lineTo(nx,ny+NODE_H-r);ctx.quadraticCurveTo(nx,ny+NODE_H,nx+r,ny+NODE_H);ctx.lineTo(nx+r,ny);ctx.quadraticCurveTo(nx,ny,nx,ny+r);ctx.closePath();ctx.fill();
+    if(m.round>0){const bw=26,bh=14,bx=nx+NODE_W-bw-4,by=ny+4;ctx.fillStyle='rgba(6,11,16,0.92)';ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.7)`;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,bw,bh,3);ctx.fill();ctx.stroke();ctx.fillStyle=`rgba(${ar},${ag},${ab},0.95)`;ctx.font='7.5px "Courier Prime",monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('RND '+m.round,bx+bw/2,by+bh/2);}
+    ctx.fillStyle=isOrigin?'#ff8890':'#ffe090';ctx.font=`bold ${isOrigin?10.5:9.5}px "Bebas Neue",sans-serif`;ctx.textAlign='center';ctx.textBaseline='top';
+    const words=(m.label||'MUTATION').toUpperCase().split(' ');const line1=words.slice(0,3).join(' ');const line2=words.slice(3,6).join(' ');
     ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=3;
-    if(line2){
-      ctx.fillText(line1.substring(0,17),x+6,ny+7);
-      ctx.fillText(line2.substring(0,17),x+6,ny+18);
-    } else {
-      ctx.fillText(line1.substring(0,17),x+6,ny+12);
-    }
-    ctx.shadowBlur=0;
-
-    // Property pills (bottom section of node)
+    if(line2){ctx.fillText(line1.substring(0,17),x+6,ny+7);ctx.fillText(line2.substring(0,17),x+6,ny+18);}
+    else{ctx.fillText(line1.substring(0,17),x+6,ny+12);}ctx.shadowBlur=0;
     const props=m.props||[];
     if(props.length>0){
-      // Divider line
-      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.25)`;ctx.lineWidth=0.8;
-      ctx.beginPath();ctx.moveTo(nx+10,ny+NODE_H-20);ctx.lineTo(nx+NODE_W-6,ny+NODE_H-20);ctx.stroke();
-      // Pill per prop, listed horizontally
-      let px=nx+10;
-      const pillY=ny+NODE_H-14;
-      ctx.font='7px "Bebas Neue",sans-serif';
-      ctx.textBaseline='middle';
+      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.25)`;ctx.lineWidth=0.8;ctx.beginPath();ctx.moveTo(nx+10,ny+NODE_H-20);ctx.lineTo(nx+NODE_W-6,ny+NODE_H-20);ctx.stroke();
+      let px=nx+10;const pillY=ny+NODE_H-14;ctx.font='7px "Bebas Neue",sans-serif';ctx.textBaseline='middle';
       props.forEach(pid=>{
-        const sp=STRAIN_PROPS[pid];
-        if(!sp)return;
-        const label=sp.label.substring(0,10);
-        const tw=ctx.measureText(label).width+8;
-        if(px+tw>nx+NODE_W-4)return;// overflow guard
-        // Extract color numbers from CSS var string
-        const pillCol=pid==='airborne'||pid==='rapid-replication'||pid==='neurotropic'||pid==='drug-resistant'||pid==='structural-shift'||pid==='cytokine-storm'?[232,53,74]:
-          pid==='waterborne'||pid==='cold-resistant'?[58,184,245]:
-          pid==='zoonotic'||pid==='toxin-producer'||pid==='contact-spread'?[245,166,35]:
-          pid==='spore-spread'||pid==='immunotarget'?[196,90,245]:
-          [41,232,160];
-        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.15)`;
-        ctx.strokeStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.7)`;ctx.lineWidth=0.7;
-        ctx.beginPath();ctx.roundRect(px,pillY-5,tw,10,2);ctx.fill();ctx.stroke();
-        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.95)`;
-        ctx.textAlign='left';
-        ctx.fillText(label,px+4,pillY);
-        px+=tw+4;
-      });
-    } else if(m.id==='origin'){
-      // Show starting props for origin
-      const startProps=[...G.pathogen.activeProps].slice(0,2);
-      let px=nx+10;
-      const pillY=ny+NODE_H-14;
-      ctx.strokeStyle=`rgba(${ar},${ag},${ab},0.25)`;ctx.lineWidth=0.8;
-      ctx.beginPath();ctx.moveTo(nx+10,ny+NODE_H-20);ctx.lineTo(nx+NODE_W-6,ny+NODE_H-20);ctx.stroke();
-      ctx.font='7px "Bebas Neue",sans-serif';ctx.textBaseline='middle';
-      startProps.forEach(pid=>{
-        const sp=STRAIN_PROPS[pid];if(!sp)return;
-        const label=sp.label.substring(0,10);
-        const tw=ctx.measureText(label).width+8;
-        if(px+tw>nx+NODE_W-4)return;
-        ctx.fillStyle='rgba(232,53,74,0.12)';ctx.strokeStyle='rgba(232,53,74,0.5)';ctx.lineWidth=0.7;
-        ctx.beginPath();ctx.roundRect(px,pillY-5,tw,10,2);ctx.fill();ctx.stroke();
-        ctx.fillStyle='rgba(255,140,150,0.9)';ctx.textAlign='left';
-        ctx.fillText(label,px+4,pillY);
-        px+=tw+4;
+        const sp=STRAIN_PROPS[pid];if(!sp)return;const label=sp.label.substring(0,10);const tw=ctx.measureText(label).width+8;if(px+tw>nx+NODE_W-4)return;
+        const pillCol=pid==='airborne'||pid==='rapid-replication'||pid==='neurotropic'||pid==='drug-resistant'||pid==='structural-shift'||pid==='cytokine-storm'?[232,53,74]:pid==='waterborne'||pid==='cold-resistant'?[58,184,245]:pid==='zoonotic'||pid==='toxin-producer'||pid==='contact-spread'?[245,166,35]:pid==='spore-spread'||pid==='immunotarget'?[196,90,245]:[41,232,160];
+        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.15)`;ctx.strokeStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.7)`;ctx.lineWidth=0.7;ctx.beginPath();ctx.roundRect(px,pillY-5,tw,10,2);ctx.fill();ctx.stroke();
+        ctx.fillStyle=`rgba(${pillCol[0]},${pillCol[1]},${pillCol[2]},0.95)`;ctx.textAlign='left';ctx.fillText(label,px+4,pillY);px+=tw+4;
       });
     }
   });
 }
-
+ 
 function triggerMutationModal(){
-  const el=document.getElementById('mut-path-list');el.innerHTML='';
-  G.pathogen.chosenMutPath=null;
+  const el=document.getElementById('mut-path-list');el.innerHTML='';G.pathogen.chosenMutPath=null;
   MUT_PATHS.forEach(mp=>{
-    const d=document.createElement('div');
-    d.className='strain-card';
-    d.innerHTML=`<div class="row gap-sm mb4">${ico(mp.icon,'sm')}<span class="hd a">${mp.label}</span></div>
-    <div class="tiny dim mb6">${mp.desc}</div>
-    <div class="tiny dim">Possible new properties: ${mp.props.map(p=>STRAIN_PROPS[p]?`<span style="color:${STRAIN_PROPS[p].col}">${STRAIN_PROPS[p].label}</span>`:'N/A').join(', ')||'Special effect'}</div>`;
-    d.onclick=()=>{
-      document.querySelectorAll('#mut-path-list .strain-card').forEach(c=>c.classList.remove('active-strain'));
-      d.classList.add('active-strain');G.pathogen.chosenMutPath=mp.id;
-    };
+    const d=document.createElement('div');d.className='strain-card';
+    d.innerHTML=`<div class="row gap-sm mb4">${ico(mp.icon,'sm')}<span class="hd a">${mp.label}</span></div><div class="tiny dim mb6">${mp.desc}</div><div class="tiny dim">Possible new properties: ${mp.props.map(p=>STRAIN_PROPS[p]?`<span style="color:${STRAIN_PROPS[p].col}">${STRAIN_PROPS[p].label}</span>`:'N/A').join(', ')||'Special effect'}</div>`;
+    d.onclick=()=>{document.querySelectorAll('#mut-path-list .strain-card').forEach(c=>c.classList.remove('active-strain'));d.classList.add('active-strain');G.pathogen.chosenMutPath=mp.id;};
     el.appendChild(d);
   });
   document.getElementById('m-mutate').style.display='flex';
 }
-
+ 
 function executeMutation(){
   if(!G.pathogen.chosenMutPath){showToast('Choose a path','a');return;}
-  const path=MUT_PATHS.find(p=>p.id===G.pathogen.chosenMutPath);
-  if(!path)return;
-  closeModal('m-mutate');
-
-  // Energy consumed
-  G.pathogen.mutEnergy=0;
-
-  let resultProps=[];
-  let effectMsg='';
-
-  if(path.props.length>0){
-    // Roll for outcome — more energy = higher chance of strong prop
-    const energyBonus=G.pathogen.mutEnergy||0;// already reset but was 100
-    const roll=Math.random();
-    // Always get at least one prop
-    const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);
-    const newProp=path.props[idx];
-    if(newProp&&!G.pathogen.activeProps.has(newProp)){
-      G.pathogen.activeProps.add(newProp);
-      resultProps.push(newProp);
-    }
-  }
+  const path=MUT_PATHS.find(p=>p.id===G.pathogen.chosenMutPath);if(!path)return;
+  closeModal('m-mutate');G.pathogen.mutEnergy=0;
+  let resultProps=[];let effectMsg='';
+  if(path.props.length>0){const roll=Math.random();const idx=roll<0.4?0:roll<0.75?Math.min(1,path.props.length-1):Math.floor(Math.random()*path.props.length);const newProp=path.props[idx];if(newProp&&!G.pathogen.activeProps.has(newProp)){G.pathogen.activeProps.add(newProp);resultProps.push(newProp);}}
   if(path.effect==='stealth'){G.pathogen.stealthRounds=2;effectMsg='Stealth mode active for 2 rounds.';}
   if(path.effect==='replication'){effectMsg='Rapid replication bonus active for 2 rounds.';}
-
-  // Add to mutation tree
   const parentId=G.pathogen.mutations[G.pathogen.mutations.length-1]?.id||'origin';
   const mutId='mut'+G.round+path.id;
-  G.pathogen.mutations.push({
-    id:mutId,label:path.label.substring(0,18),
-    props:resultProps,round:G.round,parent:parentId
-  });
-
+  G.pathogen.mutations.push({id:mutId,label:path.label.substring(0,18),props:resultProps,round:G.round,parent:parentId});
   const propDescs=resultProps.map(p=>STRAIN_PROPS[p]?`<div class="prop-tag active mt4" style="border-color:${STRAIN_PROPS[p].col};color:${STRAIN_PROPS[p].col}">${STRAIN_PROPS[p].label}: ${STRAIN_PROPS[p].desc}</div>`:'').join('');
-  // Show mutation result inline in the pathogen dashboard (no modal needed)
   const mutResultEl=document.getElementById('mut-result-inline');
-  if(mutResultEl){
-    mutResultEl.innerHTML=`<div class="disc-box disc-breakthrough mt8">
-      <div class="disc-tier">EVOLVED — ROUND ${G.round}</div>
-      <div class="disc-text">${path.label}</div>
-      ${propDescs}
-      ${effectMsg?`<div class="tiny a mt8">${effectMsg}</div>`:''}
-    </div>`;
-  }
+  if(mutResultEl){mutResultEl.innerHTML=`<div class="disc-box disc-breakthrough mt8"><div class="disc-tier">EVOLVED — ROUND ${G.round}</div><div class="disc-text">${path.label}</div>${propDescs}${effectMsg?`<div class="tiny a mt8">${effectMsg}</div>`:''}</div>`;}
   showToast(resultProps.length>0?`Mutated: ${STRAIN_PROPS[resultProps[0]]?.label||'new property'}`:path.label,'r');
-  drawMutTree();
-  renderActiveProps();
+  drawMutTree();renderActiveProps();
   document.getElementById('mut-ready-msg').style.display='none';
   document.getElementById('btn-trigger-mut').style.display='none';
   document.getElementById('path-mut-pct').textContent='0%';
   document.getElementById('mut-energy-bar').style.width='0%';
 }
-
+ 
 function submitPathogenTurn(){
   if(G.pathogen.selectedActions.length===0){showToast('Choose at least 1 action','a');return;}
-
-  // Process selected actions
-  let totalSpreadMult=1.0;
-  let totalDeathMult=1.0;
-  let totalMutGain=0;
-  let targetRegionIdx=null;
-
+  let totalSpreadMult=1.0,totalDeathMult=1.0,totalMutGain=0,targetRegionIdx=null;
   G.pathogen.selectedActions.forEach(aid=>{
     const act=PATHOGEN_ACTIONS.find(a=>a.id===aid);if(!act)return;
-    totalMutGain+=act.mutGain;
-    totalSpreadMult*=act.spreadMult;
-    totalDeathMult*=act.deathMult;
-    if(act.suppress)G.pathogen.suppressRound=true;
-    if(act.fortify)G.pathogen.fortifyRound=true;
-    if(act.targetRegion){
-      targetRegionIdx=Math.floor(Math.random()*G.regions.length);
-    }
+    totalMutGain+=act.mutGain;totalSpreadMult*=act.spreadMult;totalDeathMult*=act.deathMult;
+    if(act.suppress)G.pathogen.suppressRound=true;if(act.fortify)G.pathogen.fortifyRound=true;
+    if(act.targetRegion)targetRegionIdx=Math.floor(Math.random()*G.regions.length);
   });
-
-  // Apply active strain prop multipliers
   let propSpreadBonus=1.0;
-  G.pathogen.activeProps.forEach(p=>{
-    const sp=STRAIN_PROPS[p];if(sp)propSpreadBonus*=sp.spreadMult;
-  });
+  G.pathogen.activeProps.forEach(p=>{const sp=STRAIN_PROPS[p];if(sp)propSpreadBonus*=sp.spreadMult;});
   totalSpreadMult*=propSpreadBonus;
-
-  const pt=PT[G.pathogen.type];
-  totalMutGain*=(1+pt.mutBonus);
+  const pt=PT[G.pathogen.type];totalMutGain*=(1+pt.mutBonus);
   G.pathogen.mutEnergy=Math.min(100,G.pathogen.mutEnergy+totalMutGain);
-
-  // Waterborne: spread all regions equally
   const waterborne=G.pathogen.activeProps.has('waterborne');
-
   G.regions.forEach((r,ri)=>{
     let mult=totalSpreadMult;
     if(targetRegionIdx!==null)mult=ri===targetRegionIdx?totalSpreadMult*2.5:0.2;
     if(waterborne)mult=Math.max(mult,totalSpreadMult*0.8);
-    const baseRate=0.008+G.round*0.003;
-    const newInf=Math.min(r.pop,r.infected+r.pop*baseRate*mult*(0.8+Math.random()*0.4));
-    r.infected=Math.round(newInf*10)/10;
+    const baseRate=0.008+G.round*0.003;r.infected=Math.round(Math.min(r.pop,r.infected+r.pop*baseRate*mult*(0.8+Math.random()*0.4))*10)/10;
   });
-
   const totalInf=G.regions.reduce((s,r)=>s+r.infected,0);
   const deathRate=(0.01+G.round*0.005)*totalDeathMult*(G.pathogen.activeProps.has('cytokine-storm')?1.8:1);
-  G.world.infected=totalInf;
-  G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+totalInf*deathRate*0.05);
+  G.world.infected=totalInf;G.world.dead=Math.min(G.world.pop*0.8,G.world.dead+totalInf*deathRate*0.05);
   G.world.pop=Math.max(0,7800-G.world.dead);
-
   if(G.world.pop<=0){endGame('pathogen');return;}
-
-  if(NET.mode!=='local'){
-    // Online: send turn data to host, then go to waiting
-    const turnData={selectedActions:G.pathogen.selectedActions,mutPath:G.pathogen.chosenMutPath||null};
-    if(NET.mode==='online-guest'){guestSubmitTurn(turnData);}
-    else{applyPathogenActions(G.pathogen.selectedActions);advanceTurnOnline();}
-    return;
+ 
+  if(NET.mode==='online-guest'){
+    guestSubmitTurn({selectedActions:G.pathogen.selectedActions,mutPath:G.pathogen.chosenMutPath||null});
+  } else if(NET.mode==='online-host'){
+    // Host is the pathogen — apply then advance turn
+    advanceTurnOnline();
+  } else {
+    G.curTurnIdx++;showToast('Pathogen turn submitted','r');setTimeout(()=>{renderBoard();showScreen('s-board');},700);
   }
-  G.curTurnIdx++;
-  showToast('Pathogen turn submitted','r');
-  setTimeout(()=>{renderBoard();showScreen('s-board');},700);
 }
-
+ 
 // ===================================================
 //  SCIENTIST DASHBOARD
 // ===================================================
-let curSciIdx=null;
-let curSciTab='compounds';
-
+let curSciIdx=null;let curSciTab='compounds';
+ 
 function renderScientistDash(pidx){
-  curSciIdx=pidx;
-  const sci=G.scientists[pidx];
+  curSciIdx=pidx;const sci=G.scientists[pidx];
   sci.freeResearchDone=!!G.freeResearchUsed[`${G.round}-${pidx}`];
   document.getElementById('sci-name-disp').textContent=G.players[pidx].toUpperCase();
   document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
-
-  // Process pending orders
-  processOrders(pidx);
-
-  // Generate discovery
-  genDiscovery(pidx);
-
-  // Give plant
-  givePlant(pidx);
-
-  // Grant funding based on discoveries
-  grantFunding(pidx);
-
-  sciTab('compounds');
-  document.getElementById('cure-result-box').innerHTML='';
+  processOrders(pidx);genDiscovery(pidx);givePlant(pidx);grantFunding(pidx);
+  sciTab('compounds');document.getElementById('cure-result-box').innerHTML='';
 }
-
+ 
 function processOrders(pidx){
-  const sci=G.scientists[pidx];
-  sci.pendingOrders=sci.pendingOrders||[];
-  sci.pendingOrders.forEach(o=>{
-    o.eta--;
-    if(o.eta<=0){
-      sci.compounds.push({...o.compound,available:true,researched:false});
-      showToast(`${o.compound.name} arrived!`,'g');
-    }
-  });
+  const sci=G.scientists[pidx];sci.pendingOrders=sci.pendingOrders||[];
+  sci.pendingOrders.forEach(o=>{o.eta--;if(o.eta<=0){sci.compounds.push({...o.compound,available:true,researched:false});showToast(`${o.compound.name} arrived!`,'g');}});
   sci.pendingOrders=sci.pendingOrders.filter(o=>o.eta>0);
 }
-
+ 
 function genDiscovery(pidx){
-  const sci=G.scientists[pidx];
-  const r=G.round;
-  if(G.pathogen.suppressRound){
-    G.pathogen.suppressRound=false;
-    sci.discoveries.push({tier:'minor',text:'[SUPPRESSED] Pathogen concealed symptoms this round. No useful data.',tags:[],round:r});
-    renderDiscoveryBox(pidx);return;
-  }
-  const btChance=Math.min(0.18,0.01*r);
-  const devChance=Math.min(0.55,0.08+0.04*r);
-  const roll=Math.random();
+  const sci=G.scientists[pidx];const r=G.round;
+  if(G.pathogen.suppressRound){G.pathogen.suppressRound=false;sci.discoveries.push({tier:'minor',text:'[SUPPRESSED] Pathogen concealed symptoms this round. No useful data.',tags:[],round:r});renderDiscoveryBox(pidx);return;}
+  const btChance=Math.min(0.18,0.01*r);const devChance=Math.min(0.55,0.08+0.04*r);const roll=Math.random();
   let tier,pool;
   if(roll<btChance){tier='breakthrough';pool=DISCOVERY_POOLS.breakthrough;}
   else if(roll<btChance+devChance){tier='development';pool=DISCOVERY_POOLS.development;}
   else{tier='minor';pool=DISCOVERY_POOLS.minor;}
   const d=pool[Math.floor(Math.random()*pool.length)];
-  const disc={tier,text:d.text,tags:d.tags,round:r};
-  sci.discoveries.push(disc);
-  // Add tags to known symptoms
+  const disc={tier,text:d.text,tags:d.tags,round:r};sci.discoveries.push(disc);
   d.tags.forEach(t=>{if(!G.knownSymptoms.includes(t.toUpperCase()))G.knownSymptoms.push(t.toUpperCase());});
-  // Sort compounds by tag relevance
-  sortCompoundsByRelevance(pidx,d.tags);
-  renderDiscoveryBox(pidx);
+  sortCompoundsByRelevance(pidx,d.tags);renderDiscoveryBox(pidx);
 }
-
+ 
 function grantFunding(pidx){
-  const sci=G.scientists[pidx];
-  const lastDisc=sci.discoveries[sci.discoveries.length-1];
-  let grant=0;let reason='';
+  const sci=G.scientists[pidx];const lastDisc=sci.discoveries[sci.discoveries.length-1];
+  let grant=0,reason='';
   if(lastDisc.tier==='breakthrough'){grant=1500;reason='Breakthrough discovery grant';}
   else if(lastDisc.tier==='development'){grant=600;reason='Development milestone grant';}
   else{grant=200;reason='Standard research allocation';}
-  sci.fund+=grant;
-  sci.revenueLog.push({round:G.round,amount:grant,reason});
+  sci.fund+=grant;sci.revenueLog.push({round:G.round,amount:grant,reason});
   document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
 }
-
+ 
 function renderDiscoveryBox(pidx){
-  const sci=G.scientists[pidx];
-  const el=document.getElementById('sci-discovery');if(!el)return;
+  const sci=G.scientists[pidx];const el=document.getElementById('sci-discovery');if(!el)return;
   const disc=sci.discoveries[sci.discoveries.length-1];
-  let html=`<div class="disc-box disc-${disc.tier}">
-    <div class="disc-tier">${disc.tier.toUpperCase()} ${disc.tier==='breakthrough'?'⚡':disc.tier==='development'?'▲':'—'} ROUND ${disc.round}</div>
-    <div class="disc-text">${disc.text}</div>
-    ${disc.tags.length?`<div class="ci-tags mt8">${disc.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>`:''}
-  </div>`;
-  // Trades received
+  let html=`<div class="disc-box disc-${disc.tier}"><div class="disc-tier">${disc.tier.toUpperCase()} ${disc.tier==='breakthrough'?'⚡':disc.tier==='development'?'▲':'—'} ROUND ${disc.round}</div><div class="disc-text">${disc.text}</div>${disc.tags.length?`<div class="ci-tags mt8">${disc.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>`:''}</div>`;
   const trades=G.publicTrades.filter(t=>t.to===pidx&&t.round===G.round);
-  trades.forEach(t=>{
-    html+=`<div class="disc-box disc-development mt8">
-      <div class="disc-tier">INTEL RECEIVED — from ${G.players[t.from]}</div>
-      <div class="disc-text">${t.text}</div>
-    </div>`;
-  });
+  trades.forEach(t=>{html+=`<div class="disc-box disc-development mt8"><div class="disc-tier">INTEL RECEIVED — from ${G.players[t.from]}</div><div class="disc-text">${t.text}</div></div>`;});
   el.innerHTML=html;
 }
-
+ 
 function sortCompoundsByRelevance(pidx,discoveryTags){
-  const sci=G.scientists[pidx];
-  const pathTags=G.pathogen.type?PT[G.pathogen.type].weakTags:[];
-  // Collect all known tags
+  const sci=G.scientists[pidx];const pathTags=G.pathogen.type?PT[G.pathogen.type].weakTags:[];
   const allTags=[...new Set([...discoveryTags,...G.knownSymptoms.map(s=>s.toLowerCase())])];
   sci.compounds.sort((a,b)=>{
-    const scoreA=a.tags.reduce((s,t)=>{
-      if(allTags.includes(t))s+=3;
-      if(pathTags.includes(t))s+=5;
-      return s;
-    },0);
-    const scoreB=b.tags.reduce((s,t)=>{
-      if(allTags.includes(t))s+=3;
-      if(pathTags.includes(t))s+=5;
-      return s;
-    },0);
+    const scoreA=a.tags.reduce((s,t)=>{if(allTags.includes(t))s+=3;if(pathTags.includes(t))s+=5;return s;},0);
+    const scoreB=b.tags.reduce((s,t)=>{if(allTags.includes(t))s+=3;if(pathTags.includes(t))s+=5;return s;},0);
     return scoreB-scoreA;
   });
 }
-
+ 
 function sciTab(tab){
   curSciTab=tab;
   ['compounds','lab','patent','formula','revenue'].forEach(t=>{
     document.getElementById(`tab-pane-${t}`).style.display=t===tab?'flex':'none';
-    const btn=document.getElementById(`tab-${t}`);
-    if(btn){
-      let label=t.toUpperCase();
-      if(t==='patent'){
-        const pendingCount=(G.patents||[]).filter(p=>p.to===curSciIdx&&!p.terminated&&(p.status==='pending'||p.status==='countered')).length;
-        if(pendingCount>0)label=`PATENTS <span style="background:var(--p);color:#000;font-size:.55rem;padding:1px 5px;border-radius:10px;margin-left:3px">${pendingCount}</span>`;
-      }
-      btn.innerHTML=label;
-      btn.className=t===tab?'btn btn-b btn-sm':'btn btn-dim btn-sm';
-    }
+    const btn=document.getElementById(`tab-${t}`);if(!btn)return;
+    let label=t.toUpperCase();
+    if(t==='patent'){const pendingCount=(G.patents||[]).filter(p=>p.to===curSciIdx&&!p.terminated&&(p.status==='pending'||p.status==='countered')).length;if(pendingCount>0)label=`PATENTS <span style="background:var(--p);color:#000;font-size:.55rem;padding:1px 5px;border-radius:10px;margin-left:3px">${pendingCount}</span>`;}
+    btn.innerHTML=label;btn.className=t===tab?'btn btn-b btn-sm':'btn btn-dim btn-sm';
   });
-  if(tab==='compounds')renderCompoundList();
-  if(tab==='lab')renderPlantLab();
-  if(tab==='patent')renderPatentTab();
-  if(tab==='formula'){renderFormulaSlots();renderCompoundListForFormula();}
-  if(tab==='revenue')renderRevenueLog();
+  if(tab==='compounds')renderCompoundList();if(tab==='lab')renderPlantLab();if(tab==='patent')renderPatentTab();
+  if(tab==='formula'){renderFormulaSlots();renderCompoundListForFormula();}if(tab==='revenue')renderRevenueLog();
 }
-
+ 
 function renderCompoundList(){
   const sci=G.scientists[curSciIdx];if(!sci)return;
   const el=document.getElementById('compound-list');el.innerHTML='';
-  if(sci.compounds.length===0){el.innerHTML='<div class="tiny dim">No compounds yet. Order from the button above or synthesise from plants.</div>';return;}
+  if(sci.compounds.length===0){el.innerHTML='<div class="tiny dim">No compounds yet.</div>';return;}
   sci.compounds.forEach((c,i)=>{
-    const pending=!c.available;
-    const d=document.createElement('div');
+    const pending=!c.available;const d=document.createElement('div');
     d.className='compound-item'+(sci.selectedCompIdx===i?' selected':'');
     const dots='<div class="ci-eff">'+Array.from({length:5},(_,j)=>`<div class="eff-dot ${j<Math.ceil(c.basePower/20)?'on':'off'}"></div>`).join('')+'</div>';
-    d.innerHTML=`<div class="ci-top">
-      <div class="ci-name">${ico('flask','sm')} ${c.name}</div>
-      ${pending
-        ? `<span class="ci-eta" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')}<span style="font-family:var(--fd);font-size:.7rem">${c.eta||0}R</span></span>`
-        : `<span style="font-family:var(--fd);font-size:.6rem;padding:2px 7px;border:1px solid var(--g);color:var(--g)">READY</span>`}
-    </div>
-    <div class="ci-desc">${c.desc}</div>
-    <div class="row jbet mt4">${dots}<div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>
-    ${c.researched?'<div class="tiny a mt4">'+ico('check','sm')+' Deep-researched</div>':''}
-    ${pending?`<div class="ci-pending"><div class="ci-pending-text">${ico('clock','sm')} ARRIVING IN ${c.eta}R</div></div>`:''}`;
+    d.innerHTML=`<div class="ci-top"><div class="ci-name">${ico('flask','sm')} ${c.name}</div>${pending?`<span class="ci-eta">${ico('clock','sm')}<span style="font-family:var(--fd);font-size:.7rem">${c.eta||0}R</span></span>`:`<span style="font-family:var(--fd);font-size:.6rem;padding:2px 7px;border:1px solid var(--g);color:var(--g)">READY</span>`}</div><div class="ci-desc">${c.desc}</div><div class="row jbet mt4">${dots}<div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>${c.researched?'<div class="tiny a mt4">'+ico('check','sm')+' Deep-researched</div>':''}${pending?`<div class="ci-pending"><div class="ci-pending-text">${ico('clock','sm')} ARRIVING IN ${c.eta}R</div></div>`:''}`;
     if(!pending)d.onclick=()=>{sci.selectedCompIdx=sci.selectedCompIdx===i?null:i;renderCompoundList();};
     el.appendChild(d);
   });
 }
-
+ 
 function freeResearch(){
   const sci=G.scientists[curSciIdx];
   if(sci.freeResearchDone){showToast('Already used this round','a');return;}
   if(sci.selectedCompIdx===null){showToast('Select a compound first','a');return;}
-  const c=sci.compounds[sci.selectedCompIdx];
-  if(!c.available){showToast('Compound still pending','a');return;}
-  const pathTags=PT[G.pathogen.type]?.weakTags||[];
-  const isRelevant=c.tags.some(t=>pathTags.includes(t));
-  if(isRelevant){
-    c.basePower=Math.min(100,c.basePower+15);
-    c.desc+=' [Research confirms elevated efficacy against current strain.]';
-  } else {
-    c.desc+=' [Extended testing shows limited applicability to current strain.]';
-    c.basePower=Math.max(5,c.basePower-10);
-  }
-  c.researched=true;
-  sci.freeResearchDone=true;
-  G.freeResearchUsed[`${G.round}-${curSciIdx}`]=true;
+  const c=sci.compounds[sci.selectedCompIdx];if(!c.available){showToast('Compound still pending','a');return;}
+  const pathTags=PT[G.pathogen.type]?.weakTags||[];const isRelevant=c.tags.some(t=>pathTags.includes(t));
+  if(isRelevant){c.basePower=Math.min(100,c.basePower+15);c.desc+=' [Research confirms elevated efficacy against current strain.]';}
+  else{c.desc+=' [Extended testing shows limited applicability to current strain.]';c.basePower=Math.max(5,c.basePower-10);}
+  c.researched=true;sci.freeResearchDone=true;G.freeResearchUsed[`${G.round}-${curSciIdx}`]=true;
   renderCompoundList();showToast('Deep research complete','b');
 }
-
-// ORDERS
+ 
 function openOrderModal(){
-  const sci=G.scientists[curSciIdx];
-  const el=document.getElementById('order-list');el.innerHTML='';
+  const sci=G.scientists[curSciIdx];const el=document.getElementById('order-list');el.innerHTML='';
   const allCompounds=[...COMPOUND_POOL.basic,...COMPOUND_POOL.clinical,...COMPOUND_POOL.targeted];
-  const owned=sci.compounds.map(c=>c.name);
-  const pending=sci.pendingOrders.map(o=>o.compound.name);
+  const owned=sci.compounds.map(c=>c.name);const pending=sci.pendingOrders.map(o=>o.compound.name);
   allCompounds.filter(c=>!owned.includes(c.name)&&!pending.includes(c.name)).forEach(c=>{
-    const d=document.createElement('div');
-    d.className='compound-item';
-    const tier=COMPOUND_POOL.basic.includes(c)?'BASIC':COMPOUND_POOL.clinical.find(x=>x.name===c.name)?'CLINICAL':'TARGETED';
+    const d=document.createElement('div');d.className='compound-item';
+    const tier=COMPOUND_POOL.basic.find(x=>x.name===c.name)?'BASIC':COMPOUND_POOL.clinical.find(x=>x.name===c.name)?'CLINICAL':'TARGETED';
     const tierCol=tier==='BASIC'?'var(--txd)':tier==='CLINICAL'?'var(--a)':'var(--g)';
-    d.innerHTML=`<div class="ci-top">
-      <div class="ci-name">${ico('flask','sm')} ${c.name}</div>
-      <span style="font-family:var(--fd);font-size:.62rem;color:${tierCol}">${tier}</span>
-    </div>
-    <div class="ci-desc">${c.desc}</div>
-    <div class="row jbet mt6">
-      <div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
-      <div class="row gap-sm">
-        <span class="tiny a" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')}<span style="font-family:var(--fd)">${c.eta}R</span></span>
-        <span class="tiny g">£${c.cost.toLocaleString()}</span>
-      </div>
-    </div>`;
-    d.onclick=()=>openConfirmOrder(c);
-    el.appendChild(d);
+    d.innerHTML=`<div class="ci-top"><div class="ci-name">${ico('flask','sm')} ${c.name}</div><span style="font-family:var(--fd);font-size:.62rem;color:${tierCol}">${tier}</span></div><div class="ci-desc">${c.desc}</div><div class="row jbet mt6"><div class="ci-tags">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div><div class="row gap-sm"><span class="tiny a">${ico('clock','sm')}<span style="font-family:var(--fd)">${c.eta}R</span></span><span class="tiny g">£${c.cost.toLocaleString()}</span></div></div>`;
+    d.onclick=()=>openConfirmOrder(c);el.appendChild(d);
   });
   document.getElementById('m-order').style.display='flex';
 }
-
+ 
 function orderCompound(c){
   const sci=G.scientists[curSciIdx];
   if(sci.fund<c.cost){showToast('Insufficient funds','r');return;}
-  sci.fund-=c.cost;
-  sci.pendingOrders.push({compound:{...c},eta:c.eta});
+  sci.fund-=c.cost;sci.pendingOrders.push({compound:{...c},eta:c.eta});
   sci.revenueLog.push({round:G.round,amount:-c.cost,reason:`Ordered ${c.name}`});
   document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
-  closeModal('m-order');
-  showToast(`${c.name} ordered — arrives in ${c.eta}R`,'b');
-  renderCompoundList();
+  closeModal('m-order');showToast(`${c.name} ordered — arrives in ${c.eta}R`,'b');renderCompoundList();
 }
-
-// PLANT LAB
+ 
 function givePlant(pidx){
   const sci=G.scientists[pidx];
-  if(!sci.plantThisRound){
-    const plant={...PLANTS[Math.floor(Math.random()*PLANTS.length)],round:G.round,status:'fresh',synthEta:0};
-    sci.plants.push(plant);sci.plantThisRound=true;
-  }
-  // Tick synth countdowns
+  if(!sci.plantThisRound){const plant={...PLANTS[Math.floor(Math.random()*PLANTS.length)],round:G.round,status:'fresh',synthEta:0};sci.plants.push(plant);sci.plantThisRound=true;}
   sci.plants.forEach(p=>{
-    if(p.status==='synthesising'){
-      p.synthEta--;
-      if(p.synthEta<=0){
-        // Yield roll
-        if(p.yieldChance>0&&Math.random()<p.yieldChance&&p.yieldTags.length>0){
-          const tag=p.yieldTags[Math.floor(Math.random()*p.yieldTags.length)];
-          const base=Math.floor(40+Math.random()*30);
-          const derived={name:`SYNTH-${p.name.split(' ')[0].substring(0,6).toUpperCase()}-${G.round}`,
-            desc:`Synthesised from ${p.name}. Tags: ${p.yieldTags.join(', ')}.`,
-            tags:p.yieldTags,basePower:base,available:true,researched:false,cost:0,eta:0};
-          sci.compounds.push(derived);
-          p.status='yielded';
-          showToast(`${derived.name} synthesised from ${p.name}!`,'g');
-        } else {
-          p.status='no-yield';
-        }
-      }
-    }
+    if(p.status==='synthesising'){p.synthEta--;if(p.synthEta<=0){if(p.yieldChance>0&&Math.random()<p.yieldChance&&p.yieldTags.length>0){const tag=p.yieldTags[Math.floor(Math.random()*p.yieldTags.length)];const base=Math.floor(40+Math.random()*30);const derived={name:`SYNTH-${p.name.split(' ')[0].substring(0,6).toUpperCase()}-${G.round}`,desc:`Synthesised from ${p.name}. Tags: ${p.yieldTags.join(', ')}.`,tags:p.yieldTags,basePower:base,available:true,researched:false,cost:0,eta:0};sci.compounds.push(derived);p.status='yielded';showToast(`${derived.name} synthesised!`,'g');}else{p.status='no-yield';}}}
   });
 }
-
+ 
 function renderPlantLab(){
   const sci=G.scientists[curSciIdx];if(!sci)return;
   const el=document.getElementById('plant-list');el.innerHTML='';
@@ -4173,488 +3710,228 @@ function renderPlantLab(){
   [...sci.plants].reverse().forEach((p,ri)=>{
     const d=document.createElement('div');d.className='plant-item';
     const statusCol=p.status==='yielded'?'var(--g)':p.status==='no-yield'?'var(--txd)':p.status==='synthesising'?'var(--a)':'var(--b)';
-    const statusLabel=p.status==='yielded'?'YIELDED COMPOUND':p.status==='no-yield'?'NO YIELD'
-      :p.status==='synthesising'
-        ?`<span style="display:inline-flex;align-items:center;gap:4px">${ico('clock','sm')}<span style="font-family:var(--fd)">${p.synthEta}R</span> SYNTHESISING</span>`
-      :'FRESH SAMPLE';
-    d.innerHTML=`<div class="row gap-sm mb4">${ico('leaf','sm')}<div>
-      <div class="plant-name">${p.name}</div>
-      <div class="plant-status">${p.desc}</div>
-      <div class="tiny mt4" style="color:${statusCol}">${statusLabel}</div>
-      <div class="ci-tags mt4">${p.yieldTags.map(t=>`<span class="ci-tag">${t}</span>`).join('')||'<span class="tiny dim">unknown potential</span>'}</div>
-    </div></div>
-    ${p.status==='fresh'?`<button class="btn btn-g btn-sm plant-synth-btn" onclick="synthesisePlant(${sci.plants.length-1-ri})">SYNTHESISE (${p.synTime}R)</button>`:''}`;
+    const statusLabel=p.status==='yielded'?'YIELDED COMPOUND':p.status==='no-yield'?'NO YIELD':p.status==='synthesising'?`${ico('clock','sm')}<span style="font-family:var(--fd)">${p.synthEta}R</span> SYNTHESISING`:'FRESH SAMPLE';
+    d.innerHTML=`<div class="row gap-sm mb4">${ico('leaf','sm')}<div><div class="plant-name">${p.name}</div><div class="plant-status">${p.desc}</div><div class="tiny mt4" style="color:${statusCol}">${statusLabel}</div><div class="ci-tags mt4">${p.yieldTags.map(t=>`<span class="ci-tag">${t}</span>`).join('')||'<span class="tiny dim">unknown potential</span>'}</div></div></div>${p.status==='fresh'?`<button class="btn btn-g btn-sm plant-synth-btn" onclick="synthesisePlant(${sci.plants.length-1-ri})">SYNTHESISE (${p.synTime}R)</button>`:''}`;
     el.appendChild(d);
   });
 }
-
+ 
 function synthesisePlant(idx){
-  const sci=G.scientists[curSciIdx];
-  const p=sci.plants[idx];if(!p||p.status!=='fresh')return;
-  p.status='synthesising';p.synthEta=p.synTime;
-  showToast(`Synthesis started — ${p.synTime} rounds`,'g');
-  renderPlantLab();
+  const sci=G.scientists[curSciIdx];const p=sci.plants[idx];if(!p||p.status!=='fresh')return;
+  p.status='synthesising';p.synthEta=p.synTime;showToast(`Synthesis started — ${p.synTime} rounds`,'g');renderPlantLab();
 }
-
-// FORMULA
+ 
 function renderFormulaSlots(){
   const sci=G.scientists[curSciIdx];if(!sci)return;
   const el=document.getElementById('formula-slots');if(!el)return;
-  const extraSlot=G.pathogen.activeProps.has('neurotropic');
-  const totalSlots=extraSlot?6:5;
+  const extraSlot=G.pathogen.activeProps.has('neurotropic');const totalSlots=extraSlot?6:5;
   el.innerHTML='';
   for(let i=0;i<totalSlots;i++){
-    const c=sci.formula[i];
-    const d=document.createElement('div');
+    const c=sci.formula[i];const d=document.createElement('div');
     d.className='f-slot'+(c?c.available?' filled':' pending-slot':'');
-    if(c){d.textContent=c.name.split('-')[0];d.title=c.name;d.onclick=()=>{sci.formula.splice(i,1);renderFormulaSlots();};
-    }else{d.textContent=`SLOT ${i+1}`;d.onclick=()=>addToFormula(i);}
+    if(c){d.textContent=c.name.split('-')[0];d.title=c.name;d.onclick=()=>{sci.formula.splice(i,1);renderFormulaSlots();};}
+    else{d.textContent=`SLOT ${i+1}`;d.onclick=()=>addToFormula(i);}
     el.appendChild(d);
   }
 }
-
+ 
 function renderCompoundListForFormula(){
-  // Show mini list of available compounds for formula tab
   const sci=G.scientists[curSciIdx];
-  const existing=document.getElementById('compound-list');
-  // reuse compound tab render in formula pane
   let html='<div class="tiny dim mb8">Click a compound below to add to formula (must be READY):</div>';
-  sci.compounds.filter(c=>c.available).forEach((c,i)=>{
-    html+=`<div class="compound-item" onclick="selectCompForFormula(${i})">`+
-      `<div class="ci-name">${ico('flask','sm')} ${c.name}</div>`+
-      `<div class="ci-desc tiny">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>`;
-  });
+  sci.compounds.filter(c=>c.available).forEach((c,i)=>{html+=`<div class="compound-item" onclick="selectCompForFormula(${i})"><div class="ci-name">${ico('flask','sm')} ${c.name}</div><div class="ci-desc tiny">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>`;});
   const formulaPane=document.getElementById('tab-pane-formula');
   let miniList=formulaPane.querySelector('.mini-compound-list');
   if(!miniList){miniList=document.createElement('div');miniList.className='mini-compound-list';formulaPane.insertBefore(miniList,formulaPane.lastElementChild);}
   miniList.innerHTML=html;
 }
-
+ 
 function selectCompForFormula(compIdx){
-  const sci=G.scientists[curSciIdx];
-  sci.selectedCompIdx=compIdx;
-  const extraSlot=G.pathogen.activeProps.has('neurotropic');
-  const totalSlots=extraSlot?6:5;
+  const sci=G.scientists[curSciIdx];sci.selectedCompIdx=compIdx;
+  const extraSlot=G.pathogen.activeProps.has('neurotropic');const totalSlots=extraSlot?6:5;
   if(sci.formula.length>=totalSlots){showToast('Formula full','a');return;}
-  const c=sci.compounds[compIdx];
-  if(!c.available){showToast('Not yet available','a');return;}
+  const c=sci.compounds[compIdx];if(!c.available){showToast('Not yet available','a');return;}
   if(sci.formula.find(f=>f.name===c.name)){showToast('Already in formula','a');return;}
-  sci.formula.push(c);
-  renderFormulaSlots();showToast(`${c.name} added`,'g');
+  sci.formula.push(c);renderFormulaSlots();showToast(`${c.name} added`,'g');
 }
-
-function addToFormula(slotIdx){
-  const sci=G.scientists[curSciIdx];
-  if(sci.selectedCompIdx===null){showToast('Select compound from library tab','a');return;}
-  selectCompForFormula(sci.selectedCompIdx);
-}
-
-// evalCure — shared scoring logic (used by host in online mode too)
+ 
+function addToFormula(slotIdx){const sci=G.scientists[curSciIdx];if(sci.selectedCompIdx===null){showToast('Select compound from library tab','a');return;}selectCompForFormula(sci.selectedCompIdx);}
+ 
 function evalCure(formula){
   const pt=PT[G.pathogen.type];if(!pt)return{pct:0,won:false,breakdown:[]};
-  const correctTags=pt.weakTags;
-  const propTags=[...G.pathogen.activeProps].map(p=>STRAIN_PROPS[p]?.tag).filter(Boolean);
+  const correctTags=pt.weakTags;const propTags=[...G.pathogen.activeProps].map(p=>STRAIN_PROPS[p]?.tag).filter(Boolean);
   const allCorrectTags=[...new Set([...correctTags,...propTags])];
   let score=0,maxScore=0;const breakdown=[];
-  formula.forEach(c=>{
-    const matchingTags=c.tags.filter(t=>allCorrectTags.includes(t));
-    const tagScore=matchingTags.length,powerScore=(c.basePower/100)*2,compScore=tagScore*3+powerScore;
-    score+=compScore;maxScore+=3*2+2;
-    breakdown.push({name:c.name,tags:c.tags,matchingTags,power:c.basePower});
-  });
+  formula.forEach(c=>{const matchingTags=c.tags.filter(t=>allCorrectTags.includes(t));const tagScore=matchingTags.length,powerScore=(c.basePower/100)*2,compScore=tagScore*3+powerScore;score+=compScore;maxScore+=3*2+2;breakdown.push({name:c.name,tags:c.tags,matchingTags,power:c.basePower});});
   if(G.pathogen.fortifyRound){score*=0.8;G.pathogen.fortifyRound=false;}
   const pct=Math.min(100,Math.round((score/maxScore)*100));
   return{pct,won:pct>=72,breakdown};
 }
-
+ 
 function submitCure(){
-  const sci=G.scientists[curSciIdx];
-  const extraSlot=G.pathogen.activeProps.has('neurotropic'),requiredSlots=extraSlot?6:5;
+  const sci=G.scientists[curSciIdx];const extraSlot=G.pathogen.activeProps.has('neurotropic'),requiredSlots=extraSlot?6:5;
   if(sci.formula.length<requiredSlots){showToast(`Need ${requiredSlots} compounds`,'a');return;}
   sci.cureAttempts=(sci.cureAttempts||0)+1;
-
-  if(NET.mode==='online-guest'){
-    // Send to host for authoritative evaluation
-    guestSubmitCure(sci.formula);
-    showToast('Cure submitted — awaiting evaluation…','b');
-    return;
-  }
-
+  if(NET.mode==='online-guest'){guestSubmitCure(sci.formula);showToast('Cure submitted — awaiting evaluation…','b');return;}
   const result=evalCure(sci.formula);
   const el=document.getElementById('cure-result-box');
   if(result.won){endGame('scientists',curSciIdx,result.pct);return;}
   const qual=result.pct>=55?'PROMISING':result.pct>=35?'PARTIAL MATCH':'INSUFFICIENT';
   const qualCol=result.pct>=55?'var(--g)':result.pct>=35?'var(--a)':'var(--r)';
-  el.innerHTML=`<div class="disc-box ${result.pct>=55?'disc-development':'disc-minor'}">
-    <div class="disc-tier">EVALUATION — ${result.pct}% match</div>
-    <div class="disc-text" style="color:${qualCol}">${qual}</div>
-    <div class="tiny dim mt8">${result.breakdown.map(b=>`<div>${b.name}: ${b.matchingTags.length} tag match${b.power>=70?' ★':''}</div>`).join('')}</div>
-    <div class="tiny dim mt4">Need 72% to deploy. Refine and resubmit.</div>
-  </div>`;
+  el.innerHTML=`<div class="disc-box ${result.pct>=55?'disc-development':'disc-minor'}"><div class="disc-tier">EVALUATION — ${result.pct}% match</div><div class="disc-text" style="color:${qualCol}">${qual}</div><div class="tiny dim mt8">${result.breakdown.map(b=>`<div>${b.name}: ${b.matchingTags.length} tag match${b.power>=70?' ★':''}</div>`).join('')}</div><div class="tiny dim mt4">Need 72% to deploy. Refine and resubmit.</div></div>`;
 }
-
+ 
 function clearFormula(){G.scientists[curSciIdx].formula=[];renderFormulaSlots();}
-
+ 
 function renderRevenueLog(){
-  const sci=G.scientists[curSciIdx];
-  const el=document.getElementById('revenue-log');el.innerHTML='';
+  const sci=G.scientists[curSciIdx];const el=document.getElementById('revenue-log');el.innerHTML='';
   if(!sci.revenueLog||sci.revenueLog.length===0){el.innerHTML='<div class="tiny dim">No transactions yet.</div>';return;}
-  [...sci.revenueLog].reverse().forEach(r=>{
-    const pos=r.amount>=0;
-    const d=document.createElement('div');d.className='rev-row';
-    d.innerHTML=`<span class="tiny dim">R${r.round} — ${r.reason}</span>
-    <span class="tiny ${pos?'g':'r'} mono">${pos?'+':''}£${Math.abs(r.amount).toLocaleString()}</span>`;
-    el.appendChild(d);
-  });
+  [...sci.revenueLog].reverse().forEach(r=>{const pos=r.amount>=0;const d=document.createElement('div');d.className='rev-row';d.innerHTML=`<span class="tiny dim">R${r.round} — ${r.reason}</span><span class="tiny ${pos?'g':'r'} mono">${pos?'+':''}£${Math.abs(r.amount).toLocaleString()}</span>`;el.appendChild(d);});
 }
-
-// TRADE
+ 
 function openTradeModal(){
-  const sci=G.scientists[curSciIdx];
-  if(sci.fund<500){showToast('Need £500 to trade','r');return;}
-  const ts=document.getElementById('trade-target');
-  ts.innerHTML='<option value="">— Select recipient —</option>';
+  const sci=G.scientists[curSciIdx];if(sci.fund<500){showToast('Need £500 to trade','r');return;}
+  const ts=document.getElementById('trade-target');ts.innerHTML='<option value="">— Select recipient —</option>';
   G.players.forEach((p,i)=>{if(i!==curSciIdx&&i!==G.pathogenIdx)ts.innerHTML+=`<option value="${i}">${p}</option>`;});
-  const ds=document.getElementById('trade-disc');
-  ds.innerHTML='<option value="">— Select discovery —</option>';
+  const ds=document.getElementById('trade-disc');ds.innerHTML='<option value="">— Select discovery —</option>';
   sci.discoveries.forEach((d,i)=>ds.innerHTML+=`<option value="${i}">R${d.round} [${d.tier}]: ${d.text.substring(0,40)}…</option>`);
   document.getElementById('m-trade').style.display='flex';
 }
 function executeTrade(){
-  const sci=G.scientists[curSciIdx];
-  const tgt=parseInt(document.getElementById('trade-target').value);
-  const di=parseInt(document.getElementById('trade-disc').value);
+  const sci=G.scientists[curSciIdx];const tgt=parseInt(document.getElementById('trade-target').value);const di=parseInt(document.getElementById('trade-disc').value);
   if(isNaN(tgt)||isNaN(di)){showToast('Select both fields','a');return;}
-  sci.fund-=500;
-  sci.revenueLog.push({round:G.round,amount:-500,reason:`Intel trade to ${G.players[tgt]}`});
+  sci.fund-=500;sci.revenueLog.push({round:G.round,amount:-500,reason:`Intel trade to ${G.players[tgt]}`});
   document.getElementById('sci-fund-disp').textContent='£'+sci.fund.toLocaleString();
-  const disc=sci.discoveries[di];
-  G.publicTrades.push({from:curSciIdx,to:tgt,text:disc.text,tier:disc.tier,round:G.round});
+  const disc=sci.discoveries[di];G.publicTrades.push({from:curSciIdx,to:tgt,text:disc.text,tier:disc.tier,round:G.round});
   closeModal('m-trade');showToast('Intel transmitted','b');
 }
-
+ 
 function submitScientistTurn(){
-  const sci=G.scientists[curSciIdx];
-  sci.plantThisRound=false;
-  if(NET.mode!=='local'){
-    // Snapshot scientist state to send to host
+  const sci=G.scientists[curSciIdx];sci.plantThisRound=false;
+  if(NET.mode==='online-guest'){
     const trades=G.publicTrades.filter(t=>t.from===curSciIdx&&t.round===G.round);
     const newSciState={fund:sci.fund,compounds:sci.compounds,plants:sci.plants,formula:sci.formula,discoveries:sci.discoveries,revenueLog:sci.revenueLog,pendingOrders:sci.pendingOrders,cureAttempts:sci.cureAttempts};
-    if(NET.mode==='online-guest'){guestSubmitTurn({newSciState,trades});}
-    else{G.curTurnIdx++;advanceTurnOnline();}
-    return;
+    guestSubmitTurn({newSciState,trades});
+  } else if(NET.mode==='online-host'){
+    advanceTurnOnline();
+  } else {
+    G.curTurnIdx++;showToast('Turn submitted','b');setTimeout(()=>{renderBoard();showScreen('s-board');},700);
   }
-  G.curTurnIdx++;
-  showToast('Turn submitted','b');
-  setTimeout(()=>{renderBoard();showScreen('s-board');},700);
 }
-
-// =====================================================
-//  ORDER CONFIRMATION
-// =====================================================
+ 
+// ORDER CONFIRM
 let _pendingOrderCompound=null;
 function openConfirmOrder(c){
-  _pendingOrderCompound=c;
-  const sci=G.scientists[curSciIdx];
-  const canAfford=sci.fund>=c.cost;
+  _pendingOrderCompound=c;const sci=G.scientists[curSciIdx];const canAfford=sci.fund>=c.cost;
   const tier=COMPOUND_POOL.basic.find(x=>x.name===c.name)?'BASIC':COMPOUND_POOL.clinical.find(x=>x.name===c.name)?'CLINICAL':'TARGETED';
-  document.getElementById('confirm-order-details').innerHTML=`
-    <div class="disc-tier" style="color:var(--a)">${tier} COMPOUND</div>
-    <div class="disc-text" style="font-family:var(--fd);font-size:1rem;margin-bottom:6px">${c.name}</div>
-    <div class="tiny dim mb4">${c.desc}</div>
-    <div class="ci-tags mb6">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
-    <div class="row jbet">
-      <span class="tiny ${canAfford?'g':'r'}">Cost: £${c.cost.toLocaleString()}</span>
-      <span class="tiny a" style="display:inline-flex;align-items:center;gap:3px">${ico('clock','sm')} Arrival: ${c.eta}R</span>
-      <span class="tiny dim">Balance after: ${canAfford?'<span class="g">':'<span class="r">'}£${(sci.fund-c.cost).toLocaleString()}</span></span>
-    </div>
-  `;
-  closeModal('m-order');
-  document.getElementById('m-confirm-order').style.display='flex';
+  document.getElementById('confirm-order-details').innerHTML=`<div class="disc-tier" style="color:var(--a)">${tier} COMPOUND</div><div class="disc-text" style="font-family:var(--fd);font-size:1rem;margin-bottom:6px">${c.name}</div><div class="tiny dim mb4">${c.desc}</div><div class="ci-tags mb6">${c.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div><div class="row jbet"><span class="tiny ${canAfford?'g':'r'}">Cost: £${c.cost.toLocaleString()}</span><span class="tiny a">${ico('clock','sm')} Arrival: ${c.eta}R</span><span class="tiny dim">Balance after: ${canAfford?'<span class="g">':'<span class="r">'}£${(sci.fund-c.cost).toLocaleString()}</span></span></div>`;
+  closeModal('m-order');document.getElementById('m-confirm-order').style.display='flex';
 }
-function confirmOrder(){
-  if(!_pendingOrderCompound)return;
-  closeModal('m-confirm-order');
-  orderCompound(_pendingOrderCompound);
-  _pendingOrderCompound=null;
-}
-
-// =====================================================
-//  PATENT SYSTEM
-// =====================================================
-// G.patents = array of {id, from, to, compound, compoundOwnerIdx, offer, status:'pending'|'accepted'|'denied'|'countered'|'terminated', counterOffer, round}
-if(!G.patents)G.patents=[];
-let _viewingPatentId=null;
-
+function confirmOrder(){if(!_pendingOrderCompound)return;closeModal('m-confirm-order');orderCompound(_pendingOrderCompound);_pendingOrderCompound=null;}
+ 
+// PATENTS
+if(!G.patents)G.patents=[];let _counterPatentId=null;
+ 
 function openPatentRequestModal(){
-  const sel=document.getElementById('pat-target-sci');
-  sel.innerHTML='<option value="">— Select scientist —</option>';
-  G.players.forEach((p,i)=>{
-    if(i!==curSciIdx&&i!==G.pathogenIdx){
-      // Only show if they have synthesised compounds
-      const sci=G.scientists[i];
-      const synthComps=sci?(sci.compounds.filter(c=>c.name.startsWith('SYNTH-'))||[]):[];
-      if(synthComps.length>0)sel.innerHTML+=`<option value="${i}">${p}</option>`;
-    }
-  });
+  const sel=document.getElementById('pat-target-sci');sel.innerHTML='<option value="">— Select scientist —</option>';
+  G.players.forEach((p,i)=>{if(i!==curSciIdx&&i!==G.pathogenIdx){const sci=G.scientists[i];const synthComps=sci?(sci.compounds.filter(c=>c.name.startsWith('SYNTH-'))||[]):[];if(synthComps.length>0)sel.innerHTML+=`<option value="${i}">${p}</option>`;}});
   document.getElementById('pat-target-compound').innerHTML='<option value="">— Select scientist first —</option>';
-  sel.onchange=()=>populatePatentCompounds();
-  document.getElementById('pat-offer-amt').value='';
+  sel.onchange=()=>populatePatentCompounds();document.getElementById('pat-offer-amt').value='';
   document.getElementById('m-patent-req').style.display='flex';
 }
-
 function populatePatentCompounds(){
-  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);
-  const cSel=document.getElementById('pat-target-compound');
-  cSel.innerHTML='<option value="">— Select compound —</option>';
-  if(isNaN(tgtIdx))return;
-  const sci=G.scientists[tgtIdx];if(!sci)return;
-  sci.compounds.filter(c=>c.name.startsWith('SYNTH-')&&c.available).forEach((c,i)=>{
-    const realIdx=sci.compounds.indexOf(c);
-    cSel.innerHTML+=`<option value="${realIdx}">${c.name} [${c.tags.join(',')}] — power:${c.basePower}</option>`;
-  });
+  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);const cSel=document.getElementById('pat-target-compound');cSel.innerHTML='<option value="">— Select compound —</option>';
+  if(isNaN(tgtIdx))return;const sci=G.scientists[tgtIdx];if(!sci)return;
+  sci.compounds.filter(c=>c.name.startsWith('SYNTH-')&&c.available).forEach(c=>{const realIdx=sci.compounds.indexOf(c);cSel.innerHTML+=`<option value="${realIdx}">${c.name} [${c.tags.join(',')}] — power:${c.basePower}</option>`;});
 }
-
 function submitPatentRequest(){
-  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);
-  const compIdx=parseInt(document.getElementById('pat-target-compound').value);
-  const offer=parseInt(document.getElementById('pat-offer-amt').value);
-  if(isNaN(tgtIdx)||isNaN(compIdx)){showToast('Select scientist and compound','a');return;}
-  if(!offer||offer<100){showToast('Enter a valid offer (min £100)','a');return;}
-  const sci=G.scientists[curSciIdx];
-  if(sci.fund<offer){showToast('Insufficient funds for this offer','r');return;}
-  const tgtSci=G.scientists[tgtIdx];
-  const compound=tgtSci.compounds[compIdx];
-  if(!compound){showToast('Compound not found','r');return;}
-
-  const pat={
-    id:'pat'+Date.now(),from:curSciIdx,to:tgtIdx,
-    compound:{...compound},compoundOwnerIdx:tgtIdx,compIdx,
-    offer,status:'pending',counterOffer:null,
-    round:G.round,terminated:false
-  };
-  G.patents.push(pat);
-  closeModal('m-patent-req');
-  showToast(`Patent request sent to ${G.players[tgtIdx]}`,'p');
+  const tgtIdx=parseInt(document.getElementById('pat-target-sci').value);const compIdx=parseInt(document.getElementById('pat-target-compound').value);const offer=parseInt(document.getElementById('pat-offer-amt').value);
+  if(isNaN(tgtIdx)||isNaN(compIdx)){showToast('Select scientist and compound','a');return;}if(!offer||offer<100){showToast('Enter a valid offer (min £100)','a');return;}
+  const sci=G.scientists[curSciIdx];if(sci.fund<offer){showToast('Insufficient funds','r');return;}
+  const tgtSci=G.scientists[tgtIdx];const compound=tgtSci.compounds[compIdx];if(!compound){showToast('Compound not found','r');return;}
+  G.patents.push({id:'pat'+Date.now(),from:curSciIdx,to:tgtIdx,compound:{...compound},compoundOwnerIdx:tgtIdx,compIdx,offer,status:'pending',counterOffer:null,round:G.round,terminated:false});
+  closeModal('m-patent-req');showToast(`Patent request sent to ${G.players[tgtIdx]}`,'p');
 }
-
 function renderPatentTab(){
   if(!G.patents)G.patents=[];
-  const incoming=document.getElementById('patent-incoming');
-  const outgoing=document.getElementById('patent-outgoing');
-  incoming.innerHTML='<div class="label mb4">INCOMING REQUESTS</div>';
-  outgoing.innerHTML='<div class="label mb4">OUTGOING REQUESTS</div>';
-
-  // Incoming: deals targeted at me
+  const incoming=document.getElementById('patent-incoming');const outgoing=document.getElementById('patent-outgoing');
+  incoming.innerHTML='<div class="label mb4">INCOMING REQUESTS</div>';outgoing.innerHTML='<div class="label mb4">OUTGOING REQUESTS</div>';
   const inc=G.patents.filter(p=>p.to===curSciIdx&&!p.terminated&&(p.status==='pending'||p.status==='countered'));
   if(inc.length===0){incoming.innerHTML+='<div class="tiny dim">No incoming requests.</div>';}
-  inc.forEach(p=>{
-    const d=document.createElement('div');d.className='compound-item';
-    const fromName=G.players[p.from];
-    const statusCol=p.status==='countered'?'var(--a)':'var(--b)';
-    const statusLabel=p.status==='countered'?`COUNTER RECEIVED: £${p.counterOffer?.toLocaleString()}`:`OFFER: £${p.offer.toLocaleString()}`;
-    d.innerHTML=`<div class="ci-top">
-      <div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div>
-      <span style="font-family:var(--fd);font-size:.62rem;color:${statusCol}">${statusLabel}</span>
-    </div>
-    <div class="ci-desc">From: <span class="b">${fromName}</span> — Round ${p.round}</div>
-    <div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
-    <div class="row gap-sm mt8">
-      <button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept')">ACCEPT</button>
-      <button class="btn btn-a btn-sm" onclick="openCounterModal('${p.id}')">COUNTER</button>
-      <button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','deny')">DENY</button>
-    </div>`;
-    incoming.appendChild(d);
-  });
-
-  // Outgoing: deals I initiated
+  inc.forEach(p=>{const d=document.createElement('div');d.className='compound-item';const fromName=G.players[p.from];const statusCol=p.status==='countered'?'var(--a)':'var(--b)';const statusLabel=p.status==='countered'?`COUNTER RECEIVED: £${p.counterOffer?.toLocaleString()}`:`OFFER: £${p.offer.toLocaleString()}`;d.innerHTML=`<div class="ci-top"><div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div><span style="font-family:var(--fd);font-size:.62rem;color:${statusCol}">${statusLabel}</span></div><div class="ci-desc">From: <span class="b">${fromName}</span> — Round ${p.round}</div><div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div><div class="row gap-sm mt8"><button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept')">ACCEPT</button><button class="btn btn-a btn-sm" onclick="openCounterModal('${p.id}')">COUNTER</button><button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','deny')">DENY</button></div>`;incoming.appendChild(d);});
   const out=G.patents.filter(p=>p.from===curSciIdx&&!p.terminated);
   if(out.length===0){outgoing.innerHTML+='<div class="tiny dim">No active outgoing requests.</div>';}
-  out.forEach(p=>{
-    const d=document.createElement('div');d.className='compound-item';
-    const toName=G.players[p.to];
-    const statusMap={pending:'AWAITING RESPONSE',accepted:'ACCEPTED ✓',denied:'DENIED ✗',countered:`COUNTER: £${p.counterOffer?.toLocaleString()}`};
-    const statusColMap={pending:'var(--b)',accepted:'var(--g)',denied:'var(--r)',countered:'var(--a)'};
-    const st=statusMap[p.status]||p.status;
-    const stCol=statusColMap[p.status]||'var(--txd)';
-    d.innerHTML=`<div class="ci-top">
-      <div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div>
-      <span style="font-family:var(--fd);font-size:.62rem;color:${stCol}">${st}</span>
-    </div>
-    <div class="ci-desc">To: <span class="b">${toName}</span> — Your offer: £${p.offer.toLocaleString()}</div>
-    <div class="row gap-sm mt8 wrap">
-      ${p.status==='countered'?`<button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept-counter')">ACCEPT COUNTER (£${p.counterOffer?.toLocaleString()})</button>`:''}
-      ${p.status==='pending'||p.status==='countered'?`<button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','terminate')">TERMINATE</button>`:''}
-    </div>`;
-    outgoing.appendChild(d);
-  });
+  out.forEach(p=>{const d=document.createElement('div');d.className='compound-item';const toName=G.players[p.to];const statusMap={pending:'AWAITING RESPONSE',accepted:'ACCEPTED ✓',denied:'DENIED ✗',countered:`COUNTER: £${p.counterOffer?.toLocaleString()}`};const statusColMap={pending:'var(--b)',accepted:'var(--g)',denied:'var(--r)',countered:'var(--a)'};d.innerHTML=`<div class="ci-top"><div class="ci-name">${ico('flask','sm')} ${p.compound.name}</div><span style="font-family:var(--fd);font-size:.62rem;color:${statusColMap[p.status]||'var(--txd)'}">${statusMap[p.status]||p.status}</span></div><div class="ci-desc">To: <span class="b">${toName}</span> — Your offer: £${p.offer.toLocaleString()}</div><div class="row gap-sm mt8 wrap">${p.status==='countered'?`<button class="btn btn-g btn-sm" onclick="handlePatent('${p.id}','accept-counter')">ACCEPT COUNTER (£${p.counterOffer?.toLocaleString()})</button>`:''} ${p.status==='pending'||p.status==='countered'?`<button class="btn btn-r btn-sm" onclick="handlePatent('${p.id}','terminate')">TERMINATE</button>`:''}</div>`;outgoing.appendChild(d);});
 }
-
-let _counterPatentId=null;
 function openCounterModal(patId){
-  _counterPatentId=patId;
-  const p=G.patents.find(x=>x.id===patId);if(!p)return;
-  document.getElementById('patent-resp-details').innerHTML=`
-    <div class="disc-box disc-development">
-      <div class="disc-tier">INCOMING FROM ${G.players[p.from].toUpperCase()}</div>
-      <div class="disc-text">${p.compound.name}</div>
-      <div class="tiny dim mt4">Their offer: <span class="g">£${p.offer.toLocaleString()}</span></div>
-      <div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div>
-    </div>`;
-  document.getElementById('patent-resp-counter').style.display='none';
-  document.getElementById('pat-counter-amt').value='';
+  _counterPatentId=patId;const p=G.patents.find(x=>x.id===patId);if(!p)return;
+  document.getElementById('patent-resp-details').innerHTML=`<div class="disc-box disc-development"><div class="disc-tier">INCOMING FROM ${G.players[p.from].toUpperCase()}</div><div class="disc-text">${p.compound.name}</div><div class="tiny dim mt4">Their offer: <span class="g">£${p.offer.toLocaleString()}</span></div><div class="ci-tags mt4">${p.compound.tags.map(t=>`<span class="ci-tag">${t}</span>`).join('')}</div></div>`;
+  document.getElementById('patent-resp-counter').style.display='none';document.getElementById('pat-counter-amt').value='';
   document.getElementById('btn-pat-accept').onclick=()=>handlePatent(patId,'accept');
   document.getElementById('btn-pat-deny').onclick=()=>handlePatent(patId,'deny');
   document.getElementById('m-patent-resp').style.display='flex';
 }
-
 function handlePatent(patId,action){
   const p=G.patents.find(x=>x.id===patId);if(!p)return;
-  const fromSci=G.scientists[p.from];
-  const toSci=G.scientists[p.to];
-
+  const fromSci=G.scientists[p.from];const toSci=G.scientists[p.to];
   if(action==='accept'){
-    // Transfer compound and funds
-    const finalCost=p.offer;
-    if(fromSci.fund<finalCost){showToast('Insufficient funds to complete','r');return;}
-    fromSci.fund-=finalCost;
-    fromSci.revenueLog.push({round:G.round,amount:-finalCost,reason:`Patent purchase: ${p.compound.name}`});
-    toSci.fund+=finalCost;
-    toSci.revenueLog.push({round:G.round,amount:finalCost,reason:`Patent sale: ${p.compound.name}`});
-    const newComp={...p.compound,available:true,researched:false,name:p.compound.name+'-LIC'};
-    fromSci.compounds.push(newComp);
-    p.status='accepted';p.terminated=true;
-    closeModal('m-patent-resp');
-    showToast(`${p.compound.name} licensed! Funds transferred.`,'g');
-  } else if(action==='accept-counter'){
-    p.offer=p.counterOffer;
-    handlePatent(patId,'accept');return;
-  } else if(action==='deny'){
-    p.status='denied';p.terminated=true;
-    closeModal('m-patent-resp');
-    showToast('Patent request denied','r');
-  } else if(action==='counter'){
-    const amt=parseInt(document.getElementById('pat-counter-amt').value);
-    if(!amt||amt<100){showToast('Enter valid counter amount','a');return;}
-    p.counterOffer=amt;p.status='countered';
-    closeModal('m-patent-resp');
-    showToast(`Counter-offer of £${amt.toLocaleString()} sent`,'a');
-  } else if(action==='terminate'){
-    p.terminated=true;p.status='terminated';
-    showToast('Deal terminated','r');
-  }
+    if(fromSci.fund<p.offer){showToast('Insufficient funds','r');return;}
+    fromSci.fund-=p.offer;fromSci.revenueLog.push({round:G.round,amount:-p.offer,reason:`Patent purchase: ${p.compound.name}`});
+    toSci.fund+=p.offer;toSci.revenueLog.push({round:G.round,amount:p.offer,reason:`Patent sale: ${p.compound.name}`});
+    fromSci.compounds.push({...p.compound,available:true,researched:false,name:p.compound.name+'-LIC'});
+    p.status='accepted';p.terminated=true;closeModal('m-patent-resp');showToast(`${p.compound.name} licensed!`,'g');
+  }else if(action==='accept-counter'){p.offer=p.counterOffer;handlePatent(patId,'accept');return;}
+  else if(action==='deny'){p.status='denied';p.terminated=true;closeModal('m-patent-resp');showToast('Patent request denied','r');}
+  else if(action==='counter'){const amt=parseInt(document.getElementById('pat-counter-amt').value);if(!amt||amt<100){showToast('Enter valid counter amount','a');return;}p.counterOffer=amt;p.status='countered';closeModal('m-patent-resp');showToast(`Counter-offer of £${amt.toLocaleString()} sent`,'a');}
+  else if(action==='terminate'){p.terminated=true;p.status='terminated';showToast('Deal terminated','r');}
   renderPatentTab();
 }
-
-
+ 
 function endRound(){
-  G.round++;
-  if(G.round>G.maxRounds){endGame('pathogen');return;}
+  G.round++;if(G.round>G.maxRounds){endGame('pathogen');return;}
   G.curTurnIdx=0;
-
-  // Bacteria antibiotic resistance kicks in at round 4
-  if(G.pathogen.type==='bacteria'&&G.round>=4){
-    if(!G.pathogen.activeProps.has('drug-resistant')){
-      G.pathogen.activeProps.add('drug-resistant');
-      G.knownSymptoms.push('ANTIBIOTIC RESISTANCE');
-      showToast('Pathogen developed antibiotic resistance!','r');
-    }
-  }
-
-  // Check if all scientists are broke
-  const broke=Object.values(G.scientists).every(s=>s.fund<=0);
-  if(broke){endGame('pathogen');return;}
-
-  // Reset per-round flags
-  Object.keys(G.scientists).forEach(idx=>{ G.scientists[idx].plantThisRound=false; });
+  if(G.pathogen.type==='bacteria'&&G.round>=4){if(!G.pathogen.activeProps.has('drug-resistant')){G.pathogen.activeProps.add('drug-resistant');G.knownSymptoms.push('ANTIBIOTIC RESISTANCE');showToast('Pathogen developed antibiotic resistance!','r');}}
+  const broke=Object.values(G.scientists).every(s=>s.fund<=0);if(broke){endGame('pathogen');return;}
+  Object.keys(G.scientists).forEach(idx=>{G.scientists[idx].plantThisRound=false;});
   G.pathogen.suppressRound=false;
-
   renderBoard();
 }
-
+ 
 // ===================================================
 //  GAME END
 // ===================================================
 function endGame(winner,winnerIdx,pct){
   G.gameOver=true;
-  if(NET.mode==='online-host'){broadcastToAll({type:'game-over',winner,winnerIdx,pct});}
-  const pt=PT[G.pathogen.type]||PT.virus;
-  const d=document.getElementById('win-details-el');
+  if(NET.mode==='online-host'&&NET.socket){NET.socket.emit('game:over',{winner,winnerIdx,pct});}
+  const pt=PT[G.pathogen.type]||PT.virus;const d=document.getElementById('win-details-el');
   if(winner==='scientists'){
-    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-shield"/></svg>`;
-    document.getElementById('win-icon-el').style.color='var(--g)';
-    document.getElementById('win-title-el').innerHTML='<span style="color:var(--g)">CURE DEPLOYED</span>';
-    document.getElementById('win-sub-el').textContent='SCIENTISTS WIN — OUTBREAK CONTAINED';
-    d.innerHTML=`<div class="panel-hd">FINAL REPORT</div>
-    <div class="tiny" style="line-height:2.2">
-      <div>Scientist: <span class="g">${G.players[winnerIdx]}</span></div>
-      <div>Match: <span class="g">${pct}%</span></div>
-      <div>Pathogen: <span class="r">${pt.label}</span> — played by ${G.players[G.pathogenIdx]}</div>
-      <div>Rounds: <span class="a">${G.round}</span></div>
-      <div>Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div>
-      <div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div>
-    </div>`;
+    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-shield"/></svg>`;document.getElementById('win-icon-el').style.color='var(--g)';
+    document.getElementById('win-title-el').innerHTML='<span style="color:var(--g)">CURE DEPLOYED</span>';document.getElementById('win-sub-el').textContent='SCIENTISTS WIN — OUTBREAK CONTAINED';
+    d.innerHTML=`<div class="panel-hd">FINAL REPORT</div><div class="tiny" style="line-height:2.2"><div>Scientist: <span class="g">${G.players[winnerIdx]||'Unknown'}</span></div><div>Match: <span class="g">${pct}%</span></div><div>Pathogen: <span class="r">${pt.label}</span> — played by ${G.players[G.pathogenIdx]}</div><div>Rounds: <span class="a">${G.round}</span></div><div>Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div><div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div></div>`;
   } else {
-    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-skull"/></svg>`;
-    document.getElementById('win-icon-el').style.color='var(--r)';
-    document.getElementById('win-title-el').innerHTML='<span style="color:var(--r)">EXTINCTION</span>';
-    document.getElementById('win-sub-el').textContent='PATHOGEN WINS — HUMANITY HAS FALLEN';
-    d.innerHTML=`<div class="panel-hd">CASUALTY REPORT</div>
-    <div class="tiny" style="line-height:2.2">
-      <div>Pathogen: <span class="r">${pt.label}</span></div>
-      <div>Played by: <span class="r">${G.players[G.pathogenIdx]}</span></div>
-      <div>Final Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div>
-      <div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div>
-      <div>Active Properties: <span class="a">${[...G.pathogen.activeProps].join(', ')}</span></div>
-    </div>`;
+    document.getElementById('win-icon-el').innerHTML=`<svg><use href="#ico-skull"/></svg>`;document.getElementById('win-icon-el').style.color='var(--r)';
+    document.getElementById('win-title-el').innerHTML='<span style="color:var(--r)">EXTINCTION</span>';document.getElementById('win-sub-el').textContent='PATHOGEN WINS — HUMANITY HAS FALLEN';
+    d.innerHTML=`<div class="panel-hd">CASUALTY REPORT</div><div class="tiny" style="line-height:2.2"><div>Pathogen: <span class="r">${pt.label}</span></div><div>Played by: <span class="r">${G.players[G.pathogenIdx]}</span></div><div>Final Deaths: <span class="r">${fmt(G.world.dead*1e6)}</span></div><div>Mutations: <span class="a">${G.pathogen.mutations.length-1}</span></div><div>Active Properties: <span class="a">${[...G.pathogen.activeProps].join(', ')}</span></div></div>`;
   }
   showScreen('s-win');
 }
-
+ 
 // ===================================================
 //  UTILS
 // ===================================================
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 function closeModal(id){document.getElementById(id).style.display='none';}
-function showToast(msg,type='g'){
-  document.querySelectorAll('.toast').forEach(t=>t.remove());
-  const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;
-  document.body.appendChild(t);setTimeout(()=>t.remove(),2600);
-}
-function fmt(n){
-  if(!n||isNaN(n))return'0';
-  if(n>=1e9)return(n/1e9).toFixed(2)+'B';
-  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
-  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
-  return Math.round(n).toString();
-}
-
-// roundRect polyfill for older browsers
-if(!CanvasRenderingContext2D.prototype.roundRect){
-  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
-    this.beginPath();
-    this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.quadraticCurveTo(x+w,y,x+w,y+r);
-    this.lineTo(x+w,y+h-r);this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    this.lineTo(x+r,y+h);this.quadraticCurveTo(x,y+h,x,y+h-r);
-    this.lineTo(x,y+r);this.quadraticCurveTo(x,y,x+r,y);
-    this.closePath();return this;
-  };
-}
-
-// Animate critical-region pulse on heatmap
+function showToast(msg,type='g'){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className=`toast toast-${type}`;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
+function fmt(n){if(!n||isNaN(n))return'0';if(n>=1e9)return(n/1e9).toFixed(2)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return Math.round(n).toString();}
+ 
+if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){this.beginPath();this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.quadraticCurveTo(x+w,y,x+w,y+r);this.lineTo(x+w,y+h-r);this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);this.lineTo(x+r,y+h);this.quadraticCurveTo(x,y+h,x,y+h-r);this.lineTo(x,y+r);this.quadraticCurveTo(x,y,x+r,y);this.closePath();return this;};}
+ 
 let _hmAnimFrame=null;
 function startHeatmapAnim(){
   if(_hmAnimFrame)cancelAnimationFrame(_hmAnimFrame);
-  function loop(){
-    const hasCrit=G.regions.some(r=>r.pop>0&&r.infected/r.pop>0.5);
-    if(hasCrit&&document.getElementById('s-board').classList.contains('active')){
-      drawWorldHeatmap();
-    }
-    _hmAnimFrame=requestAnimationFrame(loop);
-  }
+  function loop(){const hasCrit=G.regions.some(r=>r.pop>0&&r.infected/r.pop>0.5);if(hasCrit&&document.getElementById('s-board').classList.contains('active')){drawWorldHeatmap();}_hmAnimFrame=requestAnimationFrame(loop);}
   loop();
 }
-
+ 
 // Init
 G.players=['','',''];
 renderPlayerRows();
